@@ -29,7 +29,7 @@
     "default_title": "Fact-Checker AI Council"
   },
   "background": {
-    "service_worker": "src/background/service_worker.js",
+    "scripts": ["src/background/service_worker.js"],
     "type": "module"
   },
   "content_scripts": [
