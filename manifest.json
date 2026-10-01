@@ -1,0 +1,70 @@
+{
+  "manifest_version": 3,
+  "name": "Fact-Checker AI Council",
+  "version": "1.0.0",
+  "description": "Multi-agent AI Council powered by Gemini 3.8 Flash to detect misinformation, debate article credibility, and analyze media bias.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "factchecker-council@google.gemini",
+      "strict_min_version": "109.0"
+    }
+  },
+  "permissions": [
+    "activeTab",
+    "storage",
+    "contextMenus",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://generativelanguage.googleapis.com/*"
+  ],
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "Fact-Checker AI Council"
+  },
+  "background": {
+    "service_worker": "src/background/service_worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": [
+        "src/content/article_extractor.js",
+        "src/content/forum_detector.js",
+        "src/content/overlay.js"
+      ],
+      "css": [
+        "src/content/overlay.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "options_ui": {
+    "page": "src/options/options.html",
+    "open_in_tab": true
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "icons/*",
+        "src/council/council.html",
+        "src/council/council.css",
+        "src/council/council.js"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

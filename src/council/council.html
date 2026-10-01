@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Council Chamber - Fact-Checker AI Council</title>
+  <link rel="stylesheet" href="council.css">
+</head>
+<body>
+  <div class="chamber-container">
+    <!-- Header -->
+    <header class="chamber-header">
+      <div class="header-left">
+        <span class="chamber-logo">🏛️</span>
+        <div>
+          <h1>Council Chamber</h1>
+          <p class="chamber-sub">Multi-Agent AI Deliberation powered by Gemini 3.8 Flash</p>
+        </div>
+      </div>
+      <div class="header-right">
+        <button id="copy-report-btn" class="btn btn-secondary">📋 Copy Report</button>
+        <button id="close-chamber-btn" class="btn btn-secondary">✕ Close</button>
+      </div>
+    </header>
+
+    <!-- Article Hero Banner -->
+    <section class="article-banner">
+      <div class="banner-domain" id="banner-domain">DOMAIN.COM</div>
+      <h2 class="banner-title" id="banner-title">Article Title</h2>
+      <div class="banner-meta">
+        <span id="banner-time">Analyzed just now</span>
+        <span id="banner-model">Model: Gemini 3.8 Flash</span>
+        <span id="banner-elapsed">Duration: 1.8s</span>
+      </div>
+      <!-- Forum Alert if applicable -->
+      <div id="chamber-forum-alert" class="chamber-forum-alert" style="display: none;">
+        <span class="alert-icon">⚠️</span>
+        <div>
+          <strong>Unconfirmed Source Notice:</strong>
+          <span id="chamber-forum-msg">This report was extracted from an open discussion forum. Claims lack editorial review.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Council Member Podiums -->
+    <section class="podiums-section">
+      <h3 class="section-title">Council of 5 AI Agents</h3>
+      <div id="podiums-grid" class="podiums-grid">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+
+    <!-- Navigation Tabs -->
+    <nav class="chamber-tabs">
+      <button class="tab-btn active" data-tab="tab-debate">🎙️ Deliberation & Debate</button>
+      <button class="tab-btn" data-tab="tab-neutrality">⚖️ Political Neutrality Matrix</button>
+      <button class="tab-btn" data-tab="tab-claims">🔍 Fact-Check Findings</button>
+      <button class="tab-btn" data-tab="tab-evidence">📄 Extracted Article Payload</button>
+    </nav>
+
+    <!-- TAB 1: Debate Timeline -->
+    <div id="tab-debate" class="tab-pane active">
+      <div class="timeline-container" id="debate-timeline">
+        <!-- Injected dynamically -->
+      </div>
+    </div>
+
+    <!-- TAB 2: Neutrality Matrix -->
+    <div id="tab-neutrality" class="tab-pane">
+      <div class="neutrality-grid">
+        <div class="neutrality-card card-left">
+          <div class="card-header">
+            <span class="lean-tag tag-left">Left-Leaning Framing</span>
+          </div>
+          <p id="neutrality-left" class="card-text">Loading...</p>
+        </div>
+
+        <div class="neutrality-card card-center highlight">
+          <div class="card-header">
+            <span class="lean-tag tag-center">Objective Center Grounding</span>
+          </div>
+          <p id="neutrality-center" class="card-text">Loading...</p>
+          <div class="neutral-synthesis">
+            <strong>Balanced Synthesis:</strong>
+            <p id="neutrality-summary">Loading...</p>
+          </div>
+        </div>
+
+        <div class="neutrality-card card-right">
+          <div class="card-header">
+            <span class="lean-tag tag-right">Right-Leaning Framing</span>
+          </div>
+          <p id="neutrality-right" class="card-text">Loading...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: Fact-Check Findings -->
+    <div id="tab-claims" class="tab-pane">
+      <div class="claims-detail-grid">
+        <div class="claims-column">
+          <h4 class="col-title text-verified">✓ Verified Factual Claims</h4>
+          <div id="col-verified" class="claims-col-list"></div>
+        </div>
+        <div class="claims-column">
+          <h4 class="col-title text-disputed">⚠️ Disputed / Unverified Assertions</h4>
+          <div id="col-disputed" class="claims-col-list"></div>
+        </div>
+        <div class="claims-column">
+          <h4 class="col-title text-misleading">❌ Misinformation / False Statements</h4>
+          <div id="col-false" class="claims-col-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: Extracted Article Payload -->
+    <div id="tab-evidence" class="tab-pane">
+      <div class="evidence-card">
+        <h3>Extracted Article Components</h3>
+        <p class="evidence-desc">The AI Council evaluates the exact Title, Head (lead), Tail (conclusion), and Context:</p>
+
+        <div class="evidence-block">
+          <span class="block-tag">HEAD (Lead Paragraph / Introduction)</span>
+          <pre id="evidence-head" class="evidence-content"></pre>
+        </div>
+
+        <div class="evidence-block">
+          <span class="block-tag">TAIL (Concluding Paragraph)</span>
+          <pre id="evidence-tail" class="evidence-content"></pre>
+        </div>
+
+        <div class="evidence-block">
+          <span class="block-tag">CONTEXT (Core Body Excerpt)</span>
+          <pre id="evidence-context" class="evidence-content"></pre>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="council.js" type="module"></script>
+</body>
+</html>

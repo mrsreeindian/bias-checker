@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fact-Checker AI Council</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <header class="popup-header">
+      <div class="header-brand">
+        <span class="brand-icon">🏛️</span>
+        <div>
+          <h1 class="brand-title">Fact-Checker</h1>
+          <span class="brand-subtitle">Gemini 3.8 Flash Council</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="settings-btn" class="icon-btn" title="Settings">⚙️</button>
+      </div>
+    </header>
+
+    <!-- VIEW 1: API Key Onboarding / Missing Prompt -->
+    <section id="view-setup" class="view-section" style="display: none;">
+      <div class="setup-card">
+        <div class="setup-icon">🔑</div>
+        <h2>Connect Gemini API Key</h2>
+        <p class="setup-desc">
+          To run the 5-agent AI Council, enter your Google Gemini API key.
+          Free keys are available instantly from Google AI Studio.
+        </p>
+
+        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" class="ai-studio-link">
+          Get Free Key at Google AI Studio ↗
+        </a>
+
+        <div class="form-group">
+          <label for="gemini-key-input">Gemini API Key</label>
+          <div class="input-wrapper">
+            <input type="password" id="gemini-key-input" placeholder="AIzaSy..." autocomplete="off">
+            <button id="toggle-key-visibility" type="button" class="eye-btn" title="Show/Hide">👁️</button>
+          </div>
+          <span id="key-status-msg" class="status-msg"></span>
+        </div>
+
+        <button id="save-key-btn" class="btn btn-primary btn-block">
+          Test & Save Key
+        </button>
+      </div>
+    </section>
+
+    <!-- VIEW 2: Ready to Check View (Current tab not yet analyzed) -->
+    <section id="view-ready" class="view-section" style="display: none;">
+      <!-- Forum Warning Banner if forum/reddit -->
+      <div id="ready-forum-warning" class="forum-warning-card" style="display: none;">
+        <span class="warning-icon">⚠️</span>
+        <div>
+          <strong>Unconfirmed Source</strong>
+          <p id="ready-forum-text">This page is an open discussion forum. Content represents unverified personal statements.</p>
+        </div>
+      </div>
+
+      <div class="page-info-card">
+        <span class="page-domain" id="ready-domain">example.com</span>
+        <h3 class="page-title" id="ready-title">Article Title</h3>
+      </div>
+
+      <div class="ready-cta">
+        <button id="convene-council-btn" class="btn btn-primary btn-block btn-lg">
+          🏛️ Convene AI Council (5 Agents)
+        </button>
+        <p class="cta-note">Gemini 3.8 Flash will debate claims, analyze rhetoric, and verify political neutrality.</p>
+      </div>
+    </section>
+
+    <!-- VIEW 3: Live Analyzing Progress -->
+    <section id="view-analyzing" class="view-section" style="display: none;">
+      <div class="analyzing-card">
+        <div class="radar-spinner"></div>
+        <h3 id="progress-stage-title">Convening AI Council...</h3>
+        <p id="progress-stage-desc">Deploying 5 specialized Gemini agents...</p>
+
+        <div class="stepper">
+          <div id="step-1" class="step-item active">
+            <span class="step-dot">1</span>
+            <span class="step-label">Extract & Claims</span>
+          </div>
+          <div id="step-2" class="step-item">
+            <span class="step-dot">2</span>
+            <span class="step-label">Cross-Debate</span>
+          </div>
+          <div id="step-3" class="step-item">
+            <span class="step-dot">3</span>
+            <span class="step-label">Synthesis</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 4: Completed Fact-Check Report -->
+    <section id="view-report" class="view-section" style="display: none;">
+      <!-- Forum Warning Banner if applicable -->
+      <div id="report-forum-warning" class="forum-warning-card" style="display: none;">
+        <span class="warning-icon">⚠️</span>
+        <div>
+          <strong>Unconfirmed Forum Source</strong>
+          <p id="report-forum-text">Claims from Reddit or social media have not undergone editorial verification.</p>
+        </div>
+      </div>
+
+      <!-- Hero Score & Verdict -->
+      <div class="verdict-hero">
+        <div class="gauge-container">
+          <svg class="radial-gauge" viewBox="0 0 100 100">
+            <circle class="gauge-bg" cx="50" cy="50" r="42"></circle>
+            <circle id="gauge-fill" class="gauge-fill" cx="50" cy="50" r="42"></circle>
+          </svg>
+          <div class="gauge-value">
+            <span id="report-score-num">--</span>
+            <small>/ 100</small>
+          </div>
+        </div>
+
+        <div class="verdict-details">
+          <span id="report-verdict-badge" class="verdict-pill">Verified Credible</span>
+          <p id="report-executive-summary" class="verdict-summary">
+            Evaluating story...
+          </p>
+        </div>
+      </div>
+
+      <!-- Political Framing Spectrum -->
+      <div class="spectrum-card">
+        <div class="spectrum-header">
+          <span>Political Framing Spectrum</span>
+          <span id="spectrum-dominant" class="dominant-tag">Balanced</span>
+        </div>
+        <div class="spectrum-bar">
+          <div id="bar-left" class="bar-segment bar-left" style="width: 20%;" title="Left Framing"></div>
+          <div id="bar-center" class="bar-segment bar-center" style="width: 60%;" title="Center Grounding"></div>
+          <div id="bar-right" class="bar-segment bar-right" style="width: 20%;" title="Right Framing"></div>
+        </div>
+        <div class="spectrum-legend">
+          <span>Left (<span id="pct-left">20%</span>)</span>
+          <span>Center (<span id="pct-center">60%</span>)</span>
+          <span>Right (<span id="pct-right">20%</span>)</span>
+        </div>
+      </div>
+
+      <!-- Key Fact Check Findings -->
+      <div class="claims-card">
+        <h4>Core Fact Check</h4>
+        <div id="claims-list" class="claims-list">
+          <!-- Injected dynamically -->
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="report-actions">
+        <button id="view-chamber-btn" class="btn btn-primary btn-block">
+          🏛️ Enter Council Chamber & Debate View ↗
+        </button>
+        <button id="recheck-btn" class="btn btn-secondary btn-block">
+          🔄 Re-evaluate Article
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <script src="popup.js" type="module"></script>
+</body>
+</html>

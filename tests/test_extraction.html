@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Test Fixture: Global Climate Summit Reaches Historic Clean Energy Agreement</title>
+  <meta name="description" content="World leaders agree on landmark renewable targets amid fierce debate over transition timelines.">
+  <meta property="og:title" content="Global Climate Summit Reaches Historic Clean Energy Agreement">
+  <meta name="author" content="Jane Doe">
+  <meta property="article:published_time" content="2026-10-01T12:00:00Z">
+  <link rel="stylesheet" href="../src/content/overlay.css">
+  <style>
+    body {
+      font-family: Georgia, serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 0 20px;
+      line-height: 1.8;
+      color: #222;
+    }
+    header { border-bottom: 1px solid #ddd; margin-bottom: 24px; padding-bottom: 16px; }
+    h1 { font-size: 32px; line-height: 1.2; margin-bottom: 8px; }
+    .byline { color: #666; font-size: 14px; margin-bottom: 16px; }
+    .ad-slot { background: #eee; padding: 20px; text-align: center; color: #999; margin: 20px 0; }
+    .test-panel {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      background: #1e293b;
+      color: white;
+      padding: 16px;
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      font-family: sans-serif;
+      font-size: 13px;
+      z-index: 999999;
+      max-width: 320px;
+    }
+    .test-panel button {
+      background: #3b82f6;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      width: 100%;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="test-panel">
+    <strong>🧪 Fact-Checker Test Runner</strong>
+    <p style="margin: 6px 0; font-size: 11px; color: #94a3b8;">
+      Click below to test client-side extraction of Title, Head, Tail, and Context.
+    </p>
+    <button onclick="runTestExtraction()">Test Article Extraction</button>
+    <button onclick="runSimulatedRedditTest()" style="background: #ea580c; margin-top: 6px;">Simulate Reddit Forum Post</button>
+    <pre id="test-output" style="max-height: 200px; overflow-y: auto; font-size: 10px; background: #0a0f1d; padding: 8px; margin-top: 8px; border-radius: 4px;"></pre>
+  </div>
+
+  <article>
+    <header>
+      <h1>Global Climate Summit Reaches Historic Clean Energy Agreement</h1>
+      <div class="byline">By Jane Doe | Published October 1, 2026</div>
+    </header>
+
+    <p>
+      GENEVA — Negotiators from over 190 nations reached an unprecedented consensus early Thursday morning, pledging to accelerate renewable energy deployment by 300% over the next decade. The landmark accord follows two weeks of intense negotiations between industrial nations and developing economies over financing mechanisms.
+    </p>
+
+    <p>
+      The agreement mandates binding targets for phasing down fossil fuel subsidies while establishing a $100 billion annual transition fund. Delegates erupted into applause as the summit president gaveled the accord into adoption at 4:15 a.m. local time.
+    </p>
+
+    <div class="ad-slot">
+      [Advertisement: Sponsor content should be automatically filtered by ArticleExtractor]
+    </div>
+
+    <p>
+      Economic analysts projected that the transition could stimulate millions of new manufacturing jobs across solar and wind sectors. However, critics from conservative policy institutes questioned the feasibility of the grid transformation timeline, citing supply chain bottlenecks in rare earth minerals.
+    </p>
+
+    <p>
+      Government representatives from major oil-exporting nations noted that while they supported clean tech development, energy reliability and affordability must remain central to economic stability.
+    </p>
+
+    <p>
+      In concluding remarks, delegates acknowledged that the hard work of domestic legislative implementation now begins, but hailed today's accord as a historic turning point in international multilateral cooperation.
+    </p>
+  </article>
+
+  <!-- Load Extractor and Detector Scripts -->
+  <script src="../src/content/article_extractor.js"></script>
+  <script src="../src/content/forum_detector.js"></script>
+
+  <script>
+    function runTestExtraction() {
+      const data = window.ArticleExtractor.extract();
+      const output = document.getElementById('test-output');
+      output.innerText = JSON.stringify({
+        title: data.title,
+        head_sample: data.head.substring(0, 80) + '...',
+        tail_sample: data.tail.substring(0, 80) + '...',
+        context_length: data.context.length,
+        advertisements_removed: !data.context.includes('Advertisement')
+      }, null, 2);
+    }
+
+    function runSimulatedRedditTest() {
+      // Simulate forum detection
+      const fakeRedditInfo = {
+        isForum: true,
+        sourceType: 'reddit',
+        platformName: 'Reddit',
+        warningMessage: '⚠️ Unconfirmed Source: This content is simulated from Reddit r/news. Claims are unverified user opinions.'
+      };
+      window.ForumDetector.injectWarningBannerIfNeeded(fakeRedditInfo);
+      document.getElementById('test-output').innerText = "Forum Warning Banner Injected Successfully!";
+    }
+  </script>
+</body>
+</html>
