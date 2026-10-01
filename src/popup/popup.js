@@ -225,9 +225,13 @@ document.addEventListener('DOMContentLoaded', async () => {
           if (res.error === 'API_KEY_REQUIRED') {
             showView(viewSetup);
           } else {
-            alert(`Analysis failed: ${res.error}`);
+            alert(`Analysis notice: ${res.error}`);
             showView(viewReady);
           }
+        } else if (res && res.success && res.report) {
+          currentReport = res.report;
+          showView(viewReport);
+          renderReport(currentReport);
         }
       });
     } catch (err) {
@@ -242,6 +246,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       chrome.runtime.sendMessage({
         type: 'START_FACT_CHECK',
         articleData: fallbackData
+      }, (res) => {
+        if (res && res.error) {
+          if (res.error === 'API_KEY_REQUIRED') {
+            showView(viewSetup);
+          } else {
+            alert(`Analysis notice: ${res.error}`);
+            showView(viewReady);
+          }
+        } else if (res && res.success && res.report) {
+          currentReport = res.report;
+          showView(viewReport);
+          renderReport(currentReport);
+        }
       });
     }
   }

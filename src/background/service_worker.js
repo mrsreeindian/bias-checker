@@ -120,8 +120,13 @@ async function handleStartFactCheck(articleData, tabId) {
     useGrounding
   });
 
-  // Progress relay to the content script tab
+  // Progress relay to runtime (popup) and tab content script (pill)
   const onProgress = (prog) => {
+    chrome.runtime.sendMessage({
+      type: 'FACT_CHECK_PROGRESS',
+      data: prog
+    }).catch(() => {});
+
     if (tabId) {
       chrome.tabs.sendMessage(tabId, {
         type: 'FACT_CHECK_PROGRESS',
@@ -148,7 +153,13 @@ async function handleStartFactCheck(articleData, tabId) {
     // Update Extension Badge
     updateBadge(report.verdict.score, tabId);
 
-    // Notify tab
+    // Broadcast completion to popup and council chamber
+    chrome.runtime.sendMessage({
+      type: 'FACT_CHECK_COMPLETE',
+      data: report
+    }).catch(() => {});
+
+    // Notify tab content script
     if (tabId) {
       chrome.tabs.sendMessage(tabId, {
         type: 'FACT_CHECK_COMPLETE',
@@ -159,6 +170,11 @@ async function handleStartFactCheck(articleData, tabId) {
     return { success: true, report };
   } catch (err) {
     console.error('Council debate error:', err);
+    chrome.runtime.sendMessage({
+      type: 'FACT_CHECK_ERROR',
+      error: err.message
+    }).catch(() => {});
+
     if (tabId) {
       chrome.tabs.sendMessage(tabId, {
         type: 'FACT_CHECK_ERROR',

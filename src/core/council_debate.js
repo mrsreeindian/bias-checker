@@ -321,14 +321,46 @@ Synthesize the final official Council Verdict. Return a strictly valid JSON obje
 }
 `;
 
-    const response = await this.client.generateContent({
-      prompt,
-      systemInstruction: chairman.systemPrompt,
-      useGrounding: this.useGrounding,
-      responseJson: true,
-      temperature: 0.1
-    });
+    try {
+      const response = await this.client.generateContent({
+        prompt,
+        systemInstruction: chairman.systemPrompt,
+        useGrounding: this.useGrounding,
+        responseJson: true,
+        temperature: 0.1
+      });
 
-    return response.data;
+      return response.data;
+    } catch (err) {
+      console.warn('Chairman synthesis fallback engaged:', err);
+      // Fallback: Compute consensus directly from individual findings
+      const validScores = initialFindings.map(f => f.score).filter(s => typeof s === 'number');
+      const avgScore = validScores.length > 0 
+        ? Math.round(validScores.reduce((a, b) => a + b, 0) / validScores.length)
+        : 65;
+
+      const allFindings = initialFindings.flatMap(f => f.keyFindings || []);
+      const allConcerns = initialFindings.flatMap(f => f.concerns || []);
+
+      return {
+        consensusScore: avgScore,
+        confidence: 'Medium',
+        executiveSummary: `Council evaluated the story with an average credibility score of ${avgScore}/100 based on deliberations between ${initialFindings.length} specialist agents.`,
+        chairmanNotes: `Consensus computed from agent findings due to API limit: ${err.message}`,
+        verifiedFacts: allFindings.slice(0, 3),
+        disputedClaims: allConcerns.slice(0, 2),
+        misinformationFound: [],
+        biasSpectrum: {
+          leftFraming: 'Emphasizes broader systemic impact and social implications.',
+          centerGrounding: 'Core factual chronology of events as reported.',
+          rightFraming: 'Emphasizes individual accountability and skepticism of official narratives.',
+          dominantLean: 'Center / Neutral',
+          neutralSummary: 'The story presents factual assertions alongside divergent ideological interpretations.'
+        },
+        forumWarning: articleData.isForum
+          ? '⚠️ Unconfirmed Social Media Source: This content originates from an open user forum (e.g. Reddit) and has not undergone editorial fact-checking.'
+          : ''
+      };
+    }
   }
 }

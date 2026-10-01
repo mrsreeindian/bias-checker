@@ -131,6 +131,8 @@
           } else {
             this.handleError(response.error);
           }
+        } else if (response && response.success && response.report) {
+          this.handleComplete(response.report);
         }
       });
     }

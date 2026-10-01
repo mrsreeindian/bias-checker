@@ -74,10 +74,16 @@ export class GeminiClient {
       throw new Error('Google Gemini API Key is missing. Please enter your key in settings.');
     }
 
-    const modelsToTry = [this.preferredModel, ...FALLBACK_MODELS.filter(m => m !== this.preferredModel)];
+    // Use previously resolved working model if available to avoid repeating 404s
+    const startModel = GeminiClient.resolvedWorkingModel || this.preferredModel;
+    const remainingModels = [this.preferredModel, ...FALLBACK_MODELS].filter(m => m !== startModel);
+    const modelsToTry = [startModel, ...remainingModels];
     let lastError = null;
 
     for (const model of modelsToTry) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 18000); // 18s timeout
+
       try {
         const url = `${API_BASE}/${model}:generateContent?key=${this.apiKey.trim()}`;
 
@@ -112,8 +118,11 @@ export class GeminiClient {
         const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
+          signal: controller.signal
         });
+
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
           const errBody = await response.json().catch(() => ({}));
@@ -125,6 +134,14 @@ export class GeminiClient {
             lastError = new Error(errMsg);
             continue;
           }
+
+          // If rate limit (429), try a fallback model or wait slightly
+          if (response.status === 429) {
+            console.warn(`Rate limit hit on ${model}, attempting fallback model...`);
+            lastError = new Error(`Rate limit exceeded (${model}). Please wait a moment.`);
+            continue;
+          }
+
           throw new Error(`Google API Error (${model}): ${errMsg}`);
         }
 
@@ -134,9 +151,10 @@ export class GeminiClient {
           throw new Error('Gemini returned an empty candidate or was blocked by safety filters');
         }
 
+        // Cache this working model for all subsequent agent requests!
+        GeminiClient.resolvedWorkingModel = model;
+
         const rawText = candidate.content.parts.map(p => p.text || '').join('');
-        
-        // Extract search citations if grounding was triggered
         const groundingMetadata = candidate.groundingMetadata || null;
 
         if (responseJson) {
