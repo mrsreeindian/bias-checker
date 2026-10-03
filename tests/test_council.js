@@ -22,7 +22,7 @@ function runTests() {
   }
 
   // Test 1: Default Model
-  assert(DEFAULT_MODEL === 'gemini-3.8-flash', 'Default model is gemini-3.8-flash');
+  assert(DEFAULT_MODEL === 'llama3.2', 'Default model is llama3.2');
 
   // Test 2: Council Members count and personas
   assert(COUNCIL_MEMBERS.length === 5, 'Council has exactly 5 member personas');

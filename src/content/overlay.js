@@ -192,8 +192,8 @@
       const pill = document.getElementById('fc-floating-pill');
       if (!pill) return;
       pill.innerHTML = `
-        <span class="fc-pill-logo">🔑</span>
-        <span class="fc-pill-text">Setup Gemini Key</span>
+        <span class="fc-pill-logo">🦙</span>
+        <span class="fc-pill-text">Setup Ollama</span>
       `;
     }
 
@@ -244,7 +244,7 @@
         <div class="fc-drawer-header">
           <div class="fc-drawer-title">
             <span>🏛️</span>
-            <span>Gemini AI Council Verdict</span>
+            <span>Ollama AI Council Verdict</span>
           </div>
           <button id="fc-drawer-close-btn" class="fc-drawer-close" type="button">&times;</button>
         </div>
@@ -259,7 +259,7 @@
             </div>
             <div class="fc-verdict-info">
               <h4 style="color: ${escapeHtml(verdict.tier.color || '#3b82f6')};">${escapeHtml(verdict.label)}</h4>
-              <p>${escapeHtml(verdict.executiveSummary || 'Council evaluated article credibility across 5 Gemini 3.8 Flash agents.')}</p>
+              <p>${escapeHtml(verdict.executiveSummary || 'Council evaluated article credibility across 5 Ollama AI agents.')}</p>
             </div>
           </div>
 
@@ -313,24 +313,29 @@
       modal.className = 'fc-modal-overlay';
       modal.innerHTML = `
         <div class="fc-modal-card">
-          <h3><span>🔑</span> Enter Google Gemini API Key</h3>
+          <h3><span>🦙</span> Connect Ollama Server</h3>
           <p>
-            The Fact-Checker Council requires a Google Gemini API key to evaluate articles with Gemini 3.8 Flash.
-            You can generate a free key in 30 seconds at <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a>.
+            The Fact-Checker Council requires an Ollama endpoint (default <code>http://localhost:11434</code>) or cloud URL to run the 5-agent debate.
           </p>
+          <div class="fc-input-group" style="margin-bottom: 8px;">
+            <label style="font-size: 11px; color: #94a3b8; display: block; margin-bottom: 4px;">Ollama Endpoint</label>
+            <input type="text" id="fc-modal-endpoint-input" placeholder="http://localhost:11434" value="http://localhost:11434" style="width: 100%; padding: 8px; border-radius: 6px; background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255, 255, 255, 0.15); color: #fff;" />
+          </div>
           <div class="fc-input-group">
-            <input type="password" id="fc-modal-key-input" placeholder="AIzaSy..." autocomplete="off" />
+            <label style="font-size: 11px; color: #94a3b8; display: block; margin-bottom: 4px;">Auth Token (Optional for local)</label>
+            <input type="password" id="fc-modal-key-input" placeholder="Bearer token for cloud instances..." autocomplete="off" style="width: 100%; padding: 8px; border-radius: 6px; background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255, 255, 255, 0.15); color: #fff;" />
             <div id="fc-modal-key-status" style="font-size: 11px; margin-top: 4px; display: none;"></div>
           </div>
-          <div class="fc-modal-actions">
+          <div class="fc-modal-actions" style="margin-top: 12px;">
             <button id="fc-modal-cancel-btn" class="fc-btn-secondary">Cancel</button>
-            <button id="fc-modal-save-btn" class="fc-btn-primary">Test & Save Key</button>
+            <button id="fc-modal-save-btn" class="fc-btn-primary">Connect Ollama</button>
           </div>
         </div>
       `;
 
       document.body.appendChild(modal);
 
+      const endpointInput = document.getElementById('fc-modal-endpoint-input');
       const input = document.getElementById('fc-modal-key-input');
       const status = document.getElementById('fc-modal-key-status');
       const saveBtn = document.getElementById('fc-modal-save-btn');
@@ -345,30 +350,26 @@
       });
 
       saveBtn?.addEventListener('click', async () => {
+        const endpoint = (endpointInput?.value || '').trim() || 'http://localhost:11434';
         const key = input.value.trim();
-        if (!key) {
-          status.innerText = 'Please enter a valid key';
-          status.style.color = '#ef4444';
-          status.style.display = 'block';
-          return;
-        }
 
-        saveBtn.innerText = 'Verifying key...';
+        saveBtn.innerText = 'Connecting...';
         saveBtn.disabled = true;
 
         chrome.runtime.sendMessage({
-          type: 'SAVE_AND_VERIFY_API_KEY',
+          type: 'SAVE_AND_VERIFY_OLLAMA_CONFIG',
+          endpoint: endpoint,
           apiKey: key
         }, (res) => {
           saveBtn.disabled = false;
-          saveBtn.innerText = 'Test & Save Key';
+          saveBtn.innerText = 'Connect Ollama';
 
           if (res && res.valid) {
             this.hasApiKey = true;
             modal.remove();
             this.triggerFactCheck();
           } else {
-            status.innerText = `Invalid key: ${res?.error || 'Verification failed'}`;
+            status.innerText = `Error: ${res?.error || 'Connection failed'}`;
             status.style.color = '#ef4444';
             status.style.display = 'block';
           }

@@ -1,19 +1,32 @@
 /**
  * council_debate.js
- * Multi-Agent AI Council Debate Orchestrator powered by Gemini 3.8 Flash
+ * Multi-Agent AI Council Debate Orchestrator powered by Ollama Cloud Models
  */
 
-import { COUNCIL_MEMBERS, getVerdictTier } from './types.js';
-import { GeminiClient } from './gemini_client.js';
+import { COUNCIL_MEMBERS, getVerdictTier, DEFAULT_MODEL, DEFAULT_OLLAMA_ENDPOINT } from './types.js';
+import { OllamaClient } from './ollama_client.js';
 import { BiasAnalyzer } from './bias_analyzer.js';
 
 export class CouncilDebateEngine {
-  constructor(apiKey, options = {}) {
-    this.apiKey = apiKey;
-    this.model = options.model || 'gemini-3.8-flash';
-    this.useGrounding = options.useGrounding || false;
-    this.councilSize = options.councilSize || 5; // 3, 4, or 5 agents
-    this.client = new GeminiClient(apiKey, this.model);
+  constructor(config = {}) {
+    // Support either legacy (apiKey, options) or modern object { endpoint, apiKey, model, councilSize }
+    if (typeof config === 'string') {
+      this.apiKey = config;
+      this.endpoint = arguments[1]?.endpoint || DEFAULT_OLLAMA_ENDPOINT;
+      this.model = arguments[1]?.model || DEFAULT_MODEL;
+      this.councilSize = arguments[1]?.councilSize || 5;
+    } else {
+      this.endpoint = config.endpoint || DEFAULT_OLLAMA_ENDPOINT;
+      this.apiKey = config.apiKey || '';
+      this.model = config.model || DEFAULT_MODEL;
+      this.councilSize = config.councilSize || 5;
+    }
+
+    this.client = new OllamaClient({
+      endpoint: this.endpoint,
+      apiKey: this.apiKey,
+      model: this.model
+    });
   }
 
   /**
@@ -22,8 +35,8 @@ export class CouncilDebateEngine {
    * @param {Function} onProgress - Optional progress reporting callback
    */
   async runCouncilDebate(articleData, onProgress = () => {}) {
-    if (!this.apiKey) {
-      throw new Error('API_KEY_REQUIRED');
+    if (!this.endpoint) {
+      throw new Error('OLLAMA_CONFIG_REQUIRED');
     }
 
     const startTime = Date.now();
@@ -40,7 +53,7 @@ export class CouncilDebateEngine {
       stage: 1,
       totalStages: 3,
       stepName: 'Independent Examination',
-      message: `Deploying ${specialistMembers.length} Gemini agents to analyze claims, rhetoric, bias, and provenance in parallel...`
+      message: `Deploying ${specialistMembers.length} Ollama AI agents to analyze claims, rhetoric, bias, and provenance in parallel...`
     });
 
     const stage1Promises = specialistMembers.map(member => 

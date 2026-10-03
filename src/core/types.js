@@ -1,10 +1,19 @@
 /**
  * types.js
- * Core definitions, constants, and personas for Fact-Checker AI Council
+ * Core definitions, constants, and personas for Fact-Checker AI Council (Ollama Cloud Edition)
  */
 
-export const DEFAULT_MODEL = 'gemini-3.8-flash';
-export const FALLBACK_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-2.5-flash'];
+export const DEFAULT_OLLAMA_ENDPOINT = 'http://localhost:11434';
+export const DEFAULT_MODEL = 'llama3.2';
+export const FALLBACK_MODELS = ['llama3.2', 'llama3.1', 'deepseek-r1', 'mistral', 'qwen2.5'];
+
+export const POPULAR_OLLAMA_MODELS = [
+  { id: 'llama3.2', name: 'Llama 3.2 (Fast & Lightweight - Recommended)' },
+  { id: 'llama3.1', name: 'Llama 3.1 8B (High Accuracy & Balance)' },
+  { id: 'deepseek-r1', name: 'DeepSeek R1 (Advanced Reasoning & Forensic Audit)' },
+  { id: 'mistral', name: 'Mistral 7B (Fast & Concise)' },
+  { id: 'qwen2.5', name: 'Qwen 2.5 (High Multilingual Performance)' }
+];
 
 export const VERDICT_TIERS = {
   VERIFIED_TRUE: {
@@ -127,7 +136,7 @@ Your role:
 ];
 
 export function getVerdictTier(score) {
-  const numScore = Math.max(0, Math.min(100, Math.round(score)));
+  const numScore = Math.max(0, Math.min(100, Math.round(Number(score) || 50)));
   for (const key of Object.keys(VERDICT_TIERS)) {
     const tier = VERDICT_TIERS[key];
     if (numScore >= tier.min && numScore <= tier.max) {

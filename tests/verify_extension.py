@@ -104,10 +104,10 @@ def run_checks():
                 pass
             else:
                 errors.append(f"Council member {member} not found in types.js")
-        if "gemini-3.8-flash" in types_content:
-            print("  ✅ types.js configures Gemini 3.8 Flash and all 5 Council Personas.")
+        if "llama3.2" in types_content:
+            print("  ✅ types.js configures Ollama Llama 3.2 and all 5 Council Personas.")
         else:
-            errors.append("DEFAULT_MODEL gemini-3.8-flash not found in types.js")
+            errors.append("DEFAULT_MODEL llama3.2 not found in types.js")
 
     # Summary
     print("\n-------------------------------------------")

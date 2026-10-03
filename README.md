@@ -1,6 +1,6 @@
-# 🏛️ Fact-Checker AI Council
+# 🏛️ Fact-Checker AI Council (Ollama Cloud Edition)
 
-A cross-browser extension for **Mozilla Firefox** and **Chromium-based browsers** (Chrome, Brave, Edge) that detects misinformation, debunks fake news, and balances political reporting using a **Council of 5 AI Agents** powered by **Google Gemini 3.8 Flash**.
+A cross-browser extension for **Mozilla Firefox / Zen Browser** and **Chromium-based browsers** (Chrome, Brave, Edge) that detects misinformation, debunks fake news, and balances political reporting using a **Council of 5 AI Agents** powered by **Ollama Cloud & Local Models** (Llama 3.2, Llama 3.1, DeepSeek R1, Mistral, Qwen 2.5).
 
 ---
 
@@ -13,24 +13,25 @@ A cross-browser extension for **Mozilla Firefox** and **Chromium-based browsers*
    - **Inspector Sentinel** (Provenance & Forum Skeptic) — Flags rumors, unconfirmed sources, and social media posts.
    - **Chairman Aristotle** (Consensus Arbitrator) — Arbitrates the debate, computes consensus credibility (0–100%), and publishes the official verdict.
 
-2. **📄 Targeted Article Extraction**:
-   - Accurately captures the **Title**, **Head** (lead paragraphs), **Tail** (concluding summary), and condensed **Context** while automatically filtering out ads, navbars, and cookie banners to conserve tokens and reduce costs.
+2. **🦙 Ollama Cloud & Local Support**:
+   - Zero-configuration local connection: Works out of the box with `http://localhost:11434`.
+   - Hosted & Cloud Ollama instances: Full support for custom HTTPS endpoints with optional Bearer token authorization.
+   - Dynamic model discovery: Query `/api/tags` to list installed models directly in Settings.
+   - Intelligent model fallback: Seamlessly falls back across available installed models (`llama3.2`, `llama3.1`, `deepseek-r1`, `mistral`, `qwen2.5`).
 
-3. **⚠️ Reddit & Forum Monitoring**:
+3. **📄 Targeted Article Extraction**:
+   - Accurately captures the **Title**, **Head** (lead paragraphs), **Tail** (concluding summary), and condensed **Context** while automatically filtering out ads, navbars, and cookie banners to conserve tokens and reduce inference latency.
+
+4. **⚠️ Reddit & Forum Monitoring**:
    - Automatically recognizes **Reddit** (`r/subreddit`, posts, comments), **Twitter/X**, **Hacker News**, and discussion forums.
    - Injects a prominent warning banner reminding users that forum posts represent unverified user-generated content.
 
-4. **⚖️ Neutral Political Framing Matrix**:
+5. **⚖️ Neutral Political Framing Matrix**:
    - Breaks down every story into **Left-Leaning Framing**, **Objective Center Grounding**, and **Right-Leaning Framing** so you can see past partisan spin.
 
-5. **🔑 Single Free API Key Setup**:
-   - Requires only **one Google Gemini API key** from Google AI Studio.
-   - Interactive onboarding prompt with 1-click test validation upon first launch.
-
-6. **⚡ Gemini 3.8 Flash Speed & Economy**:
-   - Ultra-fast responses (~1–2 seconds for the entire 3-round debate).
-   - Generous free tier and fractions of a cent per fact-check.
-   - Local hash caching in `chrome.storage.local` ensures re-visiting pages costs **$0.00**.
+6. **⚡ Private, Fast & Cost-Free**:
+   - Zero third-party tracking; models run either on your own Ollama server or your private cloud instance.
+   - Local hash caching in `chrome.storage.local` ensures re-visiting pages requires no duplicate inference.
 
 ---
 
@@ -45,20 +46,32 @@ A cross-browser extension for **Mozilla Firefox** and **Chromium-based browsers*
 4. Select the project directory (`Fact-Checker`).
 5. Pin the 🏛️ **Fact-Checker** icon to your toolbar.
 
-### For Mozilla Firefox
-1. Open Firefox and navigate to: `about:debugging#/runtime/this-firefox`
+### For Mozilla Firefox & Zen Browser
+1. Open Firefox/Zen and navigate to: `about:debugging#/runtime/this-firefox`
 2. Click **"Load Temporary Add-on..."**.
 3. Select the `manifest.json` file inside the project directory (`Fact-Checker/manifest.json`).
-4. The extension is now active in Firefox!
+4. The extension is now active!
 
 ---
 
-## 🔑 Obtaining a Google Gemini API Key
+## 🦙 Configuring Ollama
 
-1. Go to [Google AI Studio](https://aistudio.google.com/app/apikey).
-2. Sign in with your Google account.
-3. Click **"Create API Key"** and copy the key (starts with `AIzaSy...`).
-4. Click the Fact-Checker extension icon or the in-page pill, paste your key, and click **"Test & Save Key"**.
+### Local Ollama
+1. Ensure Ollama is running on your machine:
+   ```bash
+   ollama serve
+   ```
+2. Pull a recommended model:
+   ```bash
+   ollama pull llama3.2
+   ```
+3. In the Fact-Checker extension popup or settings, leave the default endpoint (`http://localhost:11434`), select **Llama 3.2**, and click **Test & Connect**.
+
+### Ollama Cloud / Remote Instance
+1. In the Fact-Checker popup or Options page:
+   - Enter your remote or cloud endpoint URL (e.g., `https://my-ollama.example.com`).
+   - Enter your API Token / Bearer Key (if your endpoint requires authentication).
+   - Click **Test & Connect** to verify connectivity and fetch installed models.
 
 ---
 
@@ -70,21 +83,21 @@ sequenceDiagram
     actor User
     participant Extractor as Article & Forum Extractor
     participant Worker as Background Service Worker
-    participant Council as Gemini 3.8 Flash Council
+    participant Council as Ollama AI Council
     participant UI as Popup & Council Chamber
 
     User->>Extractor: Opens news article or Reddit thread
     Extractor-->>User: (If forum) Shows Unconfirmed Source Banner
     User->>UI: Clicks "Fact-Check" / "Convene Council"
     UI->>Worker: Sends Title, Head, Tail & Context
-    Worker->>Council: Round 1: Parallel Claim Audit (4 Agents)
+    Worker->>Council: Stage 1: Parallel Claim Audit (4 Agents via /api/chat)
     Council-->>Worker: Agent scores, findings & spin concerns
-    Worker->>Council: Round 2: Cross-Examination Debate
+    Worker->>Council: Stage 2: Cross-Examination Debate
     Council-->>Worker: Counter-arguments and rebuttals
-    Worker->>Council: Round 3: Chairman Synthesis & Neutrality
+    Worker->>Council: Stage 3: Chairman Synthesis & Neutrality
     Council-->>Worker: Consensus Score, Left/Center/Right Matrix
     Worker->>UI: Displays Credibility Gauge & Summary
-    User->>UI: Opens Council Chamber to inspect debate
+    User->>UI: Opens Council Chamber to inspect full debate
 ```
 
 ---
@@ -93,7 +106,7 @@ sequenceDiagram
 
 ```
 Fact-Checker/
-├── manifest.json                  # Universal Manifest V3 (Chrome & Firefox)
+├── manifest.json                  # Universal Manifest V3 (Chrome, Firefox & Zen)
 ├── .gitignore                     # Ignores idea.md, cache, and virtual environments
 ├── icons/                         # Extension icons (16px, 32px, 48px, 128px)
 ├── src/
@@ -106,7 +119,7 @@ Fact-Checker/
 │   │   └── overlay.css            # Isolated styling for floating UI
 │   ├── core/
 │   │   ├── types.js               # Council personas, score tiers & data schemas
-│   │   ├── gemini_client.js       # Gemini 3.8 Flash client with key validation
+│   │   ├── ollama_client.js       # Ollama Cloud & local client with resilient fallbacks
 │   │   ├── council_debate.js      # 3-Stage debate engine & consensus synthesizer
 │   │   └── bias_analyzer.js       # Left / Center / Right framing analyzer
 │   ├── popup/
@@ -118,12 +131,13 @@ Fact-Checker/
 │   │   ├── council.css            # Podiums, debate transcript & neutrality matrix
 │   │   └── council.js             # Chamber debate player & markdown export
 │   └── options/
-│       ├── options.html           # Settings (API key, model, council size, grounding)
+│       ├── options.html           # Settings (Ollama endpoint, API key, model selection)
 │       ├── options.css            # Settings styling
-│       └── options.js             # Settings persistence
+│       └── options.js             # Settings persistence & model discovery
 └── tests/
     ├── test_extraction.html       # Visual fixture to test extraction & Reddit alerts
     ├── test_council.js            # Automated unit tests for council logic
+    ├── test_code_integrity.py     # Code integrity and OllamaClient tests
     └── verify_extension.py        # Integrity verification script
 ```
 
@@ -134,6 +148,7 @@ Fact-Checker/
 To run the automated integrity and manifest checks:
 ```bash
 python3 tests/verify_extension.py
+python3 tests/test_code_integrity.py
 ```
 
 To test article extraction and simulated Reddit alerts in a browser:

@@ -2,10 +2,10 @@
   "manifest_version": 3,
   "name": "Fact-Checker AI Council",
   "version": "1.0.0",
-  "description": "Multi-agent AI Council powered by Gemini 3.8 Flash to detect misinformation, debate article credibility, and analyze media bias.",
+  "description": "Multi-agent AI Council powered by Ollama Cloud & local models to detect misinformation, debate article credibility, and analyze media bias.",
   "browser_specific_settings": {
     "gecko": {
-      "id": "factchecker-council@google.gemini",
+      "id": "factchecker-council@ollama.ai",
       "strict_min_version": "109.0"
     }
   },
@@ -16,7 +16,9 @@
     "scripting"
   ],
   "host_permissions": [
-    "https://generativelanguage.googleapis.com/*"
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "https://*/*"
   ],
   "action": {
     "default_popup": "src/popup/popup.html",

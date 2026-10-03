@@ -31,27 +31,32 @@ def test_manifest():
             assert "council.js" not in res, "council.js should not be exposed in web_accessible_resources"
     print("  ✅ manifest.json background and resource exposure verified.")
 
-def test_api_key_check_logic():
-    print("Testing GeminiClient.testApiKey logic...")
-    with open(os.path.join(BASE_DIR, "src", "core", "gemini_client.js"), "r", encoding="utf-8") as f:
+def test_ollama_client_logic():
+    print("Testing OllamaClient.testConnection and chat inference logic...")
+    with open(os.path.join(BASE_DIR, "src", "core", "ollama_client.js"), "r", encoding="utf-8") as f:
         content = f.read()
 
-    assert "x-goog-api-key" in content, "GeminiClient missing x-goog-api-key header support"
-    assert "GET" in content and "modelsUrl" in content, "testApiKey missing GET /models validation"
-    assert "GeminiClient.resolvedWorkingModel = matchedModel" in content or "GeminiClient.resolvedWorkingModel = model" in content, "Missing active model caching in testApiKey"
-    assert "workingModel" in content, "testApiKey should return workingModel"
-    print("  ✅ GeminiClient.testApiKey enhanced validation verified.")
+    assert "testConnection" in content, "OllamaClient missing testConnection method"
+    assert "/api/tags" in content, "OllamaClient missing /api/tags endpoint query"
+    assert "/api/chat" in content, "OllamaClient missing /api/chat endpoint query"
+    assert "normalizeEndpoint" in content, "OllamaClient missing normalizeEndpoint"
+    assert "Bearer" in content, "OllamaClient missing Bearer token authorization"
+    assert "workingModel" in content, "testConnection should return workingModel"
+    print("  ✅ OllamaClient connection testing and endpoint validation verified.")
 
 def test_service_worker_key_handling():
     print("Testing service_worker.js key and cache handling...")
     with open(os.path.join(BASE_DIR, "src", "background", "service_worker.js"), "r", encoding="utf-8") as f:
         content = f.read()
 
+    assert "OllamaClient" in content, "service_worker missing OllamaClient import"
+    assert "ollamaEndpoint" in content, "service_worker missing ollamaEndpoint storage"
+    assert "SAVE_AND_VERIFY_OLLAMA_CONFIG" in content, "service_worker missing SAVE_AND_VERIFY_OLLAMA_CONFIG message handler"
     assert "testResult.workingModel" in content, "service_worker should save modelPreference from workingModel"
     assert "keys.length > 60" in content or "cacheKeys.length > 60" in content, "service_worker missing cache pruning"
     assert "inFlightChecks" in content, "service_worker missing inFlightChecks deduplication"
     assert "message.tabId" in content or "targetTabId" in content, "service_worker should accept tabId from message"
-    print("  ✅ service_worker.js key storage, deduplication, and cache bounds verified.")
+    print("  ✅ service_worker.js Ollama config storage, deduplication, and cache bounds verified.")
 
 def test_engine_fallbacks():
     print("Testing council_debate.js fallbacks...")
@@ -88,7 +93,7 @@ def test_xss_protection():
 def main():
     try:
         test_manifest()
-        test_api_key_check_logic()
+        test_ollama_client_logic()
         test_service_worker_key_handling()
         test_engine_fallbacks()
         test_xss_protection()

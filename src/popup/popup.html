@@ -14,7 +14,7 @@
         <span class="brand-icon">🏛️</span>
         <div>
           <h1 class="brand-title">Fact-Checker</h1>
-          <span class="brand-subtitle">Gemini 3.8 Flash Council</span>
+          <span class="brand-subtitle">Ollama Cloud Council</span>
         </div>
       </div>
       <div class="header-actions">
@@ -22,31 +22,44 @@
       </div>
     </header>
 
-    <!-- VIEW 1: API Key Onboarding / Missing Prompt -->
+    <!-- VIEW 1: Ollama Setup / Onboarding -->
     <section id="view-setup" class="view-section" style="display: none;">
       <div class="setup-card">
-        <div class="setup-icon">🔑</div>
-        <h2>Connect Gemini API Key</h2>
+        <div class="setup-icon">🦙</div>
+        <h2>Connect Ollama Server</h2>
         <p class="setup-desc">
-          To run the 5-agent AI Council, enter your Google Gemini API key.
-          Free keys are available instantly from Google AI Studio.
+          Connect to an Ollama Cloud endpoint or your local Ollama instance (default <code>http://localhost:11434</code>).
         </p>
 
-        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" class="ai-studio-link">
-          Get Free Key at Google AI Studio ↗
-        </a>
+        <div class="form-group">
+          <label for="ollama-endpoint-input">Ollama Endpoint URL</label>
+          <input type="text" id="ollama-endpoint-input" placeholder="http://localhost:11434 or https://cloud.ollama.com" value="http://localhost:11434">
+        </div>
 
         <div class="form-group">
-          <label for="gemini-key-input">Gemini API Key</label>
+          <label for="ollama-key-input">Auth Token / API Key <small style="font-weight: normal; opacity: 0.8;">(Optional for local)</small></label>
           <div class="input-wrapper">
-            <input type="password" id="gemini-key-input" placeholder="AIzaSy..." autocomplete="off">
+            <input type="password" id="ollama-key-input" placeholder="Bearer token for cloud instances..." autocomplete="off">
             <button id="toggle-key-visibility" type="button" class="eye-btn" title="Show/Hide">👁️</button>
           </div>
+        </div>
+
+        <div class="form-group">
+          <label for="ollama-model-select">Preferred Model</label>
+          <select id="ollama-model-select" class="form-select" style="width: 100%; padding: 8px; border-radius: 6px; background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255, 255, 255, 0.15); color: #fff;">
+            <option value="llama3.2" selected>Llama 3.2 (Fast & Lightweight - Recommended)</option>
+            <option value="llama3.1">Llama 3.1 8B (High Accuracy & Balance)</option>
+            <option value="deepseek-r1">DeepSeek R1 (Advanced Reasoning & Audit)</option>
+            <option value="mistral">Mistral 7B (Fast & Concise)</option>
+            <option value="qwen2.5">Qwen 2.5 (Multilingual)</option>
+            <option value="custom">Custom Model Name...</option>
+          </select>
+          <input type="text" id="ollama-custom-model" placeholder="e.g. llama3.2:latest" style="display: none; margin-top: 6px; width: 100%; padding: 8px; border-radius: 6px; background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(255, 255, 255, 0.15); color: #fff;">
           <span id="key-status-msg" class="status-msg"></span>
         </div>
 
         <button id="save-key-btn" class="btn btn-primary btn-block">
-          Test & Save Key
+          Test & Connect Ollama
         </button>
       </div>
     </section>
@@ -71,7 +84,7 @@
         <button id="convene-council-btn" class="btn btn-primary btn-block btn-lg">
           🏛️ Convene AI Council (5 Agents)
         </button>
-        <p class="cta-note">Gemini 3.8 Flash will debate claims, analyze rhetoric, and verify political neutrality.</p>
+        <p class="cta-note">Ollama AI agents will debate claims, analyze rhetoric, and verify political neutrality.</p>
       </div>
     </section>
 
@@ -80,7 +93,7 @@
       <div class="analyzing-card">
         <div class="radar-spinner"></div>
         <h3 id="progress-stage-title">Convening AI Council...</h3>
-        <p id="progress-stage-desc">Deploying 5 specialized Gemini agents...</p>
+        <p id="progress-stage-desc">Deploying 5 specialized Ollama agents...</p>
 
         <div class="stepper">
           <div id="step-1" class="step-item active">

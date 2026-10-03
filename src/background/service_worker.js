@@ -4,8 +4,8 @@
  */
 
 import { CouncilDebateEngine } from '../core/council_debate.js';
-import { GeminiClient } from '../core/gemini_client.js';
-import { DEFAULT_MODEL } from '../core/types.js';
+import { OllamaClient } from '../core/ollama_client.js';
+import { DEFAULT_MODEL, DEFAULT_OLLAMA_ENDPOINT } from '../core/types.js';
 
 // Setup Context Menus upon installation
 chrome.runtime.onInstalled.addListener(() => {
@@ -41,8 +41,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       case 'GET_PAGE_STATUS':
         return await handleGetPageStatus(message.url);
 
+      case 'SAVE_AND_VERIFY_OLLAMA_CONFIG':
+        return await handleSaveAndVerifyOllamaConfig(message.config || message);
+
       case 'SAVE_AND_VERIFY_API_KEY':
-        return await handleSaveAndVerifyKey(message.apiKey);
+        return await handleSaveAndVerifyOllamaConfig(typeof message.apiKey === 'string' ? { apiKey: message.apiKey } : message);
 
       case 'START_FACT_CHECK':
         const targetTabId = sender?.tab?.id || message.tabId;
@@ -71,18 +74,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 /**
- * Checks if API key is configured and if a cached report exists for the given URL
+ * Checks if Ollama is configured and if a cached report exists for the given URL
  */
 async function handleGetPageStatus(url) {
-  const data = await chrome.storage.local.get(['geminiApiKey', 'reportsCache', 'showForumWarning']);
-  const hasApiKey = !!data.geminiApiKey;
+  const data = await chrome.storage.local.get([
+    'ollamaEndpoint',
+    'ollamaApiKey',
+    'modelPreference',
+    'isConfigured',
+    'reportsCache',
+    'showForumWarning'
+  ]);
+  const isConfigured = data.isConfigured !== false && (!!data.ollamaEndpoint || !!data.ollamaApiKey || data.isConfigured === true);
   const reportsCache = data.reportsCache || {};
   const normalized = normalizeUrl(url);
   const cachedReport = url ? reportsCache[normalized] : null;
   const isAnalyzing = normalized ? inFlightChecks.has(normalized) : false;
 
   return {
-    hasApiKey,
+    hasApiKey: isConfigured, // Backward compatibility with popup/overlay
+    isConfigured,
     cachedReport: cachedReport || null,
     showForumWarning: data.showForumWarning !== false,
     isAnalyzing
@@ -90,12 +101,20 @@ async function handleGetPageStatus(url) {
 }
 
 /**
- * Validates and securely saves the Gemini API key
+ * Validates and securely saves the Ollama Cloud / Local configuration
  */
-async function handleSaveAndVerifyKey(apiKey) {
-  const testResult = await GeminiClient.testApiKey(apiKey);
+async function handleSaveAndVerifyOllamaConfig(config = {}) {
+  const endpoint = config.endpoint || config.ollamaEndpoint || DEFAULT_OLLAMA_ENDPOINT;
+  const apiKey = (config.apiKey || config.ollamaApiKey || '').trim();
+  const model = (config.model || config.modelPreference || DEFAULT_MODEL).trim();
+
+  const testResult = await OllamaClient.testConnection({ endpoint, apiKey, model });
   if (testResult.valid) {
-    const toSave = { geminiApiKey: apiKey.trim() };
+    const toSave = {
+      ollamaEndpoint: OllamaClient.normalizeEndpoint(endpoint),
+      ollamaApiKey: apiKey,
+      isConfigured: true
+    };
     if (testResult.workingModel) {
       toSave.modelPreference = testResult.workingModel;
     }
@@ -103,7 +122,8 @@ async function handleSaveAndVerifyKey(apiKey) {
     return {
       valid: true,
       note: testResult.note,
-      workingModel: testResult.workingModel
+      workingModel: testResult.workingModel,
+      availableModels: testResult.availableModels || []
     };
   }
   return { valid: false, error: testResult.error };
@@ -120,26 +140,23 @@ async function handleStartFactCheck(articleData, tabId) {
 
   const job = (async () => {
     const settings = await chrome.storage.local.get([
-      'geminiApiKey',
+      'ollamaEndpoint',
+      'ollamaApiKey',
       'modelPreference',
       'councilSize',
-      'useGrounding',
       'reportsCache'
     ]);
 
-    const apiKey = settings.geminiApiKey;
-    if (!apiKey) {
-      return { error: 'API_KEY_REQUIRED' };
-    }
-
+    const endpoint = settings.ollamaEndpoint || DEFAULT_OLLAMA_ENDPOINT;
+    const apiKey = settings.ollamaApiKey || '';
     const model = settings.modelPreference || DEFAULT_MODEL;
     const councilSize = settings.councilSize || 5;
-    const useGrounding = !!settings.useGrounding;
 
-    const engine = new CouncilDebateEngine(apiKey, {
+    const engine = new CouncilDebateEngine({
+      endpoint,
+      apiKey,
       model,
-      councilSize,
-      useGrounding
+      councilSize
     });
 
     // Progress relay to runtime (popup) and tab content script (pill)

@@ -69,7 +69,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 **Article:** ${report.article.title}
 **Domain:** ${report.article.domain}
 **Consensus Credibility Score:** ${report.verdict.score}/100 (${report.verdict.label})
-**Analyzed by:** Gemini 3.8 Flash Council (5 Agents)
+**Analyzed by:** Ollama AI Council (5 Agents)
 
 ## Executive Summary
 ${report.verdict.executiveSummary}
@@ -107,7 +107,7 @@ Report Generated: ${new Date(report.timestamp).toLocaleString()}
     // Banner
     document.getElementById('banner-domain').innerText = report.article.domain || 'WEB ARTICLE';
     document.getElementById('banner-title').innerText = report.article.title || 'Untitled Article';
-    document.getElementById('banner-model').innerText = `Model: ${report.modelUsed || 'Gemini 3.8 Flash'}`;
+    document.getElementById('banner-model').innerText = `Model: ${report.modelUsed || 'Llama 3.2 (Ollama)'}`;
     document.getElementById('banner-elapsed').innerText = `Duration: ${report.elapsedSeconds || '1.8'}s`;
     document.getElementById('banner-time').innerText = new Date(report.timestamp).toLocaleTimeString();
 

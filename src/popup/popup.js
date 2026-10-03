@@ -18,7 +18,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const viewReport = document.getElementById('view-report');
 
   // Input & Buttons
-  const keyInput = document.getElementById('gemini-key-input');
+  const endpointInput = document.getElementById('ollama-endpoint-input');
+  const keyInput = document.getElementById('ollama-key-input');
+  const modelSelect = document.getElementById('ollama-model-select');
+  const customModelInput = document.getElementById('ollama-custom-model');
   const toggleKeyVisibilityBtn = document.getElementById('toggle-key-visibility');
   const saveKeyBtn = document.getElementById('save-key-btn');
   const keyStatusMsg = document.getElementById('key-status-msg');
@@ -32,8 +35,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     chrome.runtime.openOptionsPage();
   });
 
+  // Toggle model select custom input
+  modelSelect?.addEventListener('change', () => {
+    if (modelSelect.value === 'custom') {
+      customModelInput.style.display = 'block';
+    } else {
+      customModelInput.style.display = 'none';
+    }
+  });
+
   // Toggle API key visibility
-  toggleKeyVisibilityBtn.addEventListener('click', () => {
+  toggleKeyVisibilityBtn?.addEventListener('click', () => {
     if (keyInput.type === 'password') {
       keyInput.type = 'text';
       toggleKeyVisibilityBtn.innerText = '🔒';
@@ -53,32 +65,34 @@ document.addEventListener('DOMContentLoaded', async () => {
       .replace(/'/g, '&#39;');
   }
 
-  // Save Key Click
+  // Save Ollama Settings Click
   saveKeyBtn.addEventListener('click', async () => {
-    const key = keyInput.value.trim();
-    if (!key) {
-      showKeyStatus('Please enter an API key', false);
-      return;
-    }
+    const endpoint = (endpointInput?.value || '').trim() || 'http://localhost:11434';
+    const key = (keyInput?.value || '').trim();
+    const model = modelSelect?.value === 'custom'
+      ? (customModelInput?.value.trim() || 'llama3.2')
+      : (modelSelect?.value || 'llama3.2');
 
     saveKeyBtn.disabled = true;
-    saveKeyBtn.innerText = 'Verifying with Google...';
-    showKeyStatus('Testing key with Gemini...', null);
+    saveKeyBtn.innerText = 'Connecting to Ollama...';
+    showKeyStatus('Testing connection & checking models...', null);
 
     chrome.runtime.sendMessage({
-      type: 'SAVE_AND_VERIFY_API_KEY',
-      apiKey: key
+      type: 'SAVE_AND_VERIFY_OLLAMA_CONFIG',
+      endpoint,
+      apiKey: key,
+      model
     }, (res) => {
       saveKeyBtn.disabled = false;
-      saveKeyBtn.innerText = 'Test & Save Key';
+      saveKeyBtn.innerText = 'Test & Connect Ollama';
 
       if (res && res.valid) {
-        showKeyStatus(res.note ? `✅ ${res.note}` : '✅ Key verified & saved!', true);
+        showKeyStatus(res.note ? `✅ ${res.note}` : '✅ Connected & saved successfully!', true);
         setTimeout(() => {
           checkPageStatus();
         }, 600);
       } else {
-        showKeyStatus(`❌ ${res?.error || 'Verification failed'}`, false);
+        showKeyStatus(`❌ ${res?.error || 'Connection failed'}`, false);
       }
     });
   });
@@ -127,11 +141,31 @@ document.addEventListener('DOMContentLoaded', async () => {
   checkPageStatus();
 
   /**
-   * Checks API key and page analysis status
+   * Checks Ollama settings and page analysis status
    */
   async function checkPageStatus() {
-    const data = await chrome.storage.local.get(['geminiApiKey']);
-    if (!data.geminiApiKey) {
+    const data = await chrome.storage.local.get(['ollamaEndpoint', 'ollamaApiKey', 'modelPreference', 'isConfigured']);
+    
+    if (endpointInput && data.ollamaEndpoint) {
+      endpointInput.value = data.ollamaEndpoint;
+    }
+    if (keyInput && data.ollamaApiKey) {
+      keyInput.value = data.ollamaApiKey;
+    }
+    if (modelSelect && data.modelPreference) {
+      if (['llama3.2', 'llama3.1', 'deepseek-r1', 'mistral', 'qwen2.5'].includes(data.modelPreference)) {
+        modelSelect.value = data.modelPreference;
+        if (customModelInput) customModelInput.style.display = 'none';
+      } else {
+        modelSelect.value = 'custom';
+        if (customModelInput) {
+          customModelInput.style.display = 'block';
+          customModelInput.value = data.modelPreference;
+        }
+      }
+    }
+
+    if (!data.isConfigured && !data.ollamaEndpoint) {
       showView(viewSetup);
       return;
     }
@@ -141,7 +175,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       type: 'GET_PAGE_STATUS',
       url: pageUrl
     }, (res) => {
-      if (!res.hasApiKey) {
+      if (!res.hasApiKey && !res.isConfigured) {
         showView(viewSetup);
       } else if (res.isAnalyzing) {
         showView(viewAnalyzing);
@@ -265,7 +299,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         tabId: targetTabId
       }, (res) => {
         if (res && res.error) {
-          if (res.error === 'API_KEY_REQUIRED') {
+          if (res.error === 'API_KEY_REQUIRED' || res.error === 'OLLAMA_CONFIG_REQUIRED') {
             showView(viewSetup);
           } else {
             const desc = document.getElementById('progress-stage-desc');
@@ -298,7 +332,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         tabId: targetTabId
       }, (res) => {
         if (res && res.error) {
-          if (res.error === 'API_KEY_REQUIRED') {
+          if (res.error === 'API_KEY_REQUIRED' || res.error === 'OLLAMA_CONFIG_REQUIRED') {
             showView(viewSetup);
           } else {
             const desc = document.getElementById('progress-stage-desc');
@@ -324,7 +358,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       else el.classList.remove('active');
     });
     document.getElementById('progress-stage-title').innerText = 'Convening AI Council...';
-    document.getElementById('progress-stage-desc').innerText = 'Deploying Gemini 3.8 Flash agents in parallel...';
+    document.getElementById('progress-stage-desc').innerText = 'Deploying 5 specialized Ollama AI agents in parallel...';
   }
 
   function updateAnalyzingProgress(data) {
