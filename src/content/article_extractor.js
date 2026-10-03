@@ -45,8 +45,14 @@ window.ArticleExtractor = {
    * Extracts Head (opening), Tail (conclusion), and Context (condensed body)
    */
   extractContentSegments() {
-    // Locate the core container (article, main, or high-density text block)
-    const root = document.querySelector('article, [role="main"], main, .post-content, .article-body, .story-body') || document.body;
+    // Locate the core container (article, main, Reddit thread, or high-density text block)
+    const root = document.querySelector('article, [role="main"], main, shreddit-post, [data-testid="post-container"], .post-content, .article-body, .story-body, .entry')
+      || document.body
+      || document.documentElement;
+
+    if (!root) {
+      return { head: '', tail: '', context: '' };
+    }
 
     // Clone to safely sanitize without affecting DOM
     const clone = root.cloneNode(true);

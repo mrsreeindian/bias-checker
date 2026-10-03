@@ -8,6 +8,16 @@
   if (window.FactCheckerOverlayInjected) return;
   window.FactCheckerOverlayInjected = true;
 
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   class FactCheckerOverlay {
     constructor() {
       this.currentReport = null;
@@ -19,23 +29,17 @@
     }
 
     async init() {
-      // 1. Run forum detection and inject banner if on Reddit/forum
-      if (window.ForumDetector) {
-        const forumInfo = window.ForumDetector.detect();
-        if (forumInfo && forumInfo.isForum) {
-          window.ForumDetector.injectWarningBannerIfNeeded(forumInfo);
-        }
-      }
-
-      // 2. Inject floating widget UI
+      // 1. Inject floating widget UI
       this.injectRootElement();
 
-      // 3. Query background script for cached report & API key status
+      // 2. Query background script for cached report & API key status
       this.queryInitialStatus();
 
-      // 4. Setup runtime message listener
+      // 3. Setup runtime message listener
       chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-        if (message.type === 'FACT_CHECK_PROGRESS') {
+        if (message.type === 'TRIGGER_FACT_CHECK') {
+          this.triggerFactCheck();
+        } else if (message.type === 'FACT_CHECK_PROGRESS') {
           this.handleProgress(message.data);
         } else if (message.type === 'FACT_CHECK_COMPLETE') {
           this.handleComplete(message.data);
@@ -74,7 +78,19 @@
 
         if (response) {
           this.hasApiKey = !!response.hasApiKey;
-          if (response.cachedReport) {
+
+          // Check user setting before injecting forum warning banner
+          if (response.showForumWarning !== false && window.ForumDetector) {
+            const forumInfo = window.ForumDetector.detect();
+            if (forumInfo && forumInfo.isForum) {
+              window.ForumDetector.injectWarningBannerIfNeeded(forumInfo);
+            }
+          }
+
+          if (response.isAnalyzing) {
+            this.isAnalyzing = true;
+            this.renderAnalyzingState('Council Deliberating...');
+          } else if (response.cachedReport) {
             this.currentReport = response.cachedReport;
             this.renderCompletedState(this.currentReport);
           } else if (!this.hasApiKey) {
@@ -125,8 +141,10 @@
         articleData: articleData
       }, (response) => {
         if (response && response.error) {
+          this.isAnalyzing = false;
           if (response.error === 'API_KEY_REQUIRED') {
             this.hasApiKey = false;
+            this.renderMissingKeyPill();
             this.showApiKeyModal();
           } else {
             this.handleError(response.error);
@@ -151,9 +169,12 @@
 
     handleError(errMsg) {
       this.isAnalyzing = false;
-      const pillText = document.getElementById('fc-pill-text');
-      if (pillText) {
-        pillText.innerText = 'Analysis Error';
+      const pill = document.getElementById('fc-floating-pill');
+      if (pill) {
+        pill.innerHTML = `
+          <span class="fc-pill-logo">⚠️</span>
+          <span class="fc-pill-text">Analysis Error</span>
+        `;
       }
       console.error('Fact-Checker Error:', errMsg);
     }
@@ -163,7 +184,7 @@
       if (!pill) return;
       pill.innerHTML = `
         <div class="fc-spinner"></div>
-        <span class="fc-pill-text">${msg}</span>
+        <span class="fc-pill-text">${escapeHtml(msg)}</span>
       `;
     }
 
@@ -180,14 +201,14 @@
       const pill = document.getElementById('fc-floating-pill');
       if (!pill) return;
 
-      const score = report.verdict.score;
+      const score = Math.round(report.verdict.score);
       const tier = report.verdict.tier;
-      const badgeClass = `badge-${tier.badgeClass}`;
+      const badgeClass = `badge-${escapeHtml(tier.badgeClass)}`;
 
       pill.innerHTML = `
-        <span class="fc-pill-logo">${tier.icon || '🏛️'}</span>
+        <span class="fc-pill-logo">${escapeHtml(tier.icon || '🏛️')}</span>
         <span class="fc-pill-text">${score}%</span>
-        <span class="fc-pill-badge ${badgeClass}">${tier.label}</span>
+        <span class="fc-pill-badge ${badgeClass}">${escapeHtml(tier.label)}</span>
       `;
 
       this.renderDrawerContent(report);
@@ -210,12 +231,12 @@
       const ratios = report.biasRatios || { left: 20, center: 60, right: 20 };
 
       const verifiedHtml = (report.claims.verified || []).slice(0, 2).map(c => 
-        `<div class="fc-claim-item fc-claim-verified">✓ ${c}</div>`
+        `<div class="fc-claim-item fc-claim-verified">✓ ${escapeHtml(c)}</div>`
       ).join('') || '<div class="fc-claim-item">No major verified claims highlighted</div>';
 
       const warningHtml = report.forumWarning ? `
         <div style="background: rgba(234, 88, 12, 0.2); border-left: 3px solid #ea580c; padding: 8px; border-radius: 4px; font-size: 11px; color: #fdba74;">
-          ${report.forumWarning}
+          ${escapeHtml(report.forumWarning)}
         </div>
       ` : '';
 
@@ -225,37 +246,37 @@
             <span>🏛️</span>
             <span>Gemini AI Council Verdict</span>
           </div>
-          <button id="fc-drawer-close-btn" class="fc-drawer-close">&times;</button>
+          <button id="fc-drawer-close-btn" class="fc-drawer-close" type="button">&times;</button>
         </div>
 
         <div class="fc-drawer-body">
           ${warningHtml}
 
           <div class="fc-score-row">
-            <div class="fc-score-circle" style="border-color: ${verdict.tier.color || '#3b82f6'};">
-              <span class="fc-score-num" style="color: ${verdict.tier.color || '#3b82f6'};">${verdict.score}</span>
+            <div class="fc-score-circle" style="border-color: ${escapeHtml(verdict.tier.color || '#3b82f6')};">
+              <span class="fc-score-num" style="color: ${escapeHtml(verdict.tier.color || '#3b82f6')};">${Math.round(verdict.score)}</span>
               <span class="fc-score-max">/ 100</span>
             </div>
             <div class="fc-verdict-info">
-              <h4 style="color: ${verdict.tier.color || '#3b82f6'};">${verdict.label}</h4>
-              <p>${verdict.executiveSummary || 'Council evaluated article credibility across 5 Gemini 3.8 Flash agents.'}</p>
+              <h4 style="color: ${escapeHtml(verdict.tier.color || '#3b82f6')};">${escapeHtml(verdict.label)}</h4>
+              <p>${escapeHtml(verdict.executiveSummary || 'Council evaluated article credibility across 5 Gemini 3.8 Flash agents.')}</p>
             </div>
           </div>
 
           <div class="fc-spectrum-box">
             <div class="fc-spectrum-title">
               <span>Political Framing Spectrum</span>
-              <span style="color: #38bdf8;">${spectrum.dominantLean || 'Neutral'}</span>
+              <span style="color: #38bdf8;">${escapeHtml(spectrum.dominantLean || 'Neutral')}</span>
             </div>
             <div class="fc-spectrum-bar">
-              <div class="fc-bar-left" style="width: ${ratios.left}%;" title="Left Framing: ${ratios.left}%"></div>
-              <div class="fc-bar-center" style="width: ${ratios.center}%;" title="Center Grounding: ${ratios.center}%"></div>
-              <div class="fc-bar-right" style="width: ${ratios.right}%;" title="Right Framing: ${ratios.right}%"></div>
+              <div class="fc-bar-left" style="width: ${Number(ratios.left) || 20}%;" title="Left Framing: ${Number(ratios.left) || 20}%"></div>
+              <div class="fc-bar-center" style="width: ${Number(ratios.center) || 60}%;" title="Center Grounding: ${Number(ratios.center) || 60}%"></div>
+              <div class="fc-bar-right" style="width: ${Number(ratios.right) || 20}%;" title="Right Framing: ${Number(ratios.right) || 20}%"></div>
             </div>
             <div class="fc-spectrum-labels">
-              <span>Left (${ratios.left}%)</span>
-              <span>Center (${ratios.center}%)</span>
-              <span>Right (${ratios.right}%)</span>
+              <span>Left (${Number(ratios.left) || 20}%)</span>
+              <span>Center (${Number(ratios.center) || 60}%)</span>
+              <span>Right (${Number(ratios.right) || 20}%)</span>
             </div>
           </div>
 
@@ -264,7 +285,7 @@
             ${verifiedHtml}
           </div>
 
-          <button id="fc-open-chamber-btn" class="fc-action-btn">
+          <button id="fc-open-chamber-btn" class="fc-action-btn" type="button">
             Enter Council Chamber & View Debate ↗
           </button>
         </div>
@@ -315,7 +336,13 @@
       const saveBtn = document.getElementById('fc-modal-save-btn');
       const cancelBtn = document.getElementById('fc-modal-cancel-btn');
 
-      cancelBtn?.addEventListener('click', () => modal.remove());
+      cancelBtn?.addEventListener('click', () => {
+        this.isAnalyzing = false;
+        if (!this.hasApiKey) {
+          this.renderMissingKeyPill();
+        }
+        modal.remove();
+      });
 
       saveBtn?.addEventListener('click', async () => {
         const key = input.value.trim();

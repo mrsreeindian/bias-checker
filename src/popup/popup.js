@@ -43,6 +43,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   // Save Key Click
   saveKeyBtn.addEventListener('click', async () => {
     const key = keyInput.value.trim();
@@ -63,7 +73,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       saveKeyBtn.innerText = 'Test & Save Key';
 
       if (res && res.valid) {
-        showKeyStatus('✅ Key verified & saved!', true);
+        showKeyStatus(res.note ? `✅ ${res.note}` : '✅ Key verified & saved!', true);
         setTimeout(() => {
           checkPageStatus();
         }, 600);
@@ -102,8 +112,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       showView(viewReport);
       renderReport(currentReport);
     } else if (message.type === 'FACT_CHECK_ERROR') {
-      alert(`Fact check error: ${message.error}`);
-      showView(viewReady);
+      const stageDesc = document.getElementById('progress-stage-desc');
+      if (stageDesc) {
+        stageDesc.innerText = `Error: ${message.error || 'Deliberation failed'}`;
+        stageDesc.style.color = '#ef4444';
+      }
+      setTimeout(() => {
+        showView(viewReady);
+      }, 2500);
     }
   });
 
@@ -127,6 +143,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }, (res) => {
       if (!res.hasApiKey) {
         showView(viewSetup);
+      } else if (res.isAnalyzing) {
+        showView(viewAnalyzing);
+        updateAnalyzingProgress({
+          stepName: 'Council Deliberating...',
+          message: 'Agents are actively analyzing article...'
+        });
       } else if (res.cachedReport) {
         currentReport = res.cachedReport;
         showView(viewReport);
@@ -156,11 +178,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  function renderReadyPage() {
+  async function renderReadyPage() {
     const domainEl = document.getElementById('ready-domain');
     const titleEl = document.getElementById('ready-title');
     const forumWarning = document.getElementById('ready-forum-warning');
     const forumText = document.getElementById('ready-forum-text');
+
+    const settings = await chrome.storage.local.get(['councilSize']);
+    const councilSize = settings.councilSize || 5;
+    const btn = document.getElementById('convene-council-btn');
+    if (btn) {
+      btn.innerText = `🏛️ Convene AI Council (${councilSize} Agents)`;
+    }
 
     const url = activeTab?.url || '';
     try {
@@ -194,10 +223,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     showView(viewAnalyzing);
     resetStepper();
 
+    const targetTabId = activeTab?.id;
+    const tabUrl = activeTab?.url || '';
+    let tabDomain = 'Current Page';
+    if (tabUrl) {
+      try {
+        tabDomain = new URL(tabUrl).hostname.replace(/^www\./, '');
+      } catch {}
+    }
+
     try {
+      if (!targetTabId) {
+        throw new Error('No active tab identified');
+      }
+
       // Execute extraction in active tab
       const results = await chrome.scripting.executeScript({
-        target: { tabId: activeTab.id },
+        target: { tabId: targetTabId },
         func: () => {
           const article = window.ArticleExtractor ? window.ArticleExtractor.extract() : {
             title: document.title,
@@ -212,21 +254,26 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
 
       const articleData = results?.[0]?.result || {
-        title: activeTab.title,
-        url: activeTab.url,
-        domain: new URL(activeTab.url).hostname
+        title: activeTab?.title || 'Web Article',
+        url: tabUrl,
+        domain: tabDomain
       };
 
       chrome.runtime.sendMessage({
         type: 'START_FACT_CHECK',
-        articleData: articleData
+        articleData: articleData,
+        tabId: targetTabId
       }, (res) => {
         if (res && res.error) {
           if (res.error === 'API_KEY_REQUIRED') {
             showView(viewSetup);
           } else {
-            alert(`Analysis notice: ${res.error}`);
-            showView(viewReady);
+            const desc = document.getElementById('progress-stage-desc');
+            if (desc) {
+              desc.innerText = `Notice: ${res.error}`;
+              desc.style.color = '#ef4444';
+            }
+            setTimeout(() => showView(viewReady), 2500);
           }
         } else if (res && res.success && res.report) {
           currentReport = res.report;
@@ -236,23 +283,30 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
     } catch (err) {
       console.warn('Script injection fallback:', err);
-      // Fallback if scripting is restricted on special pages
       const fallbackData = {
-        title: activeTab.title,
-        url: activeTab.url,
-        domain: new URL(activeTab.url).hostname,
-        context: activeTab.title
+        title: activeTab?.title || 'Web Article',
+        head: activeTab?.title || 'No lead paragraph available',
+        tail: activeTab?.title || 'No concluding paragraph available',
+        url: tabUrl,
+        domain: tabDomain,
+        context: activeTab?.title || 'Page Content',
+        isForum: false
       };
       chrome.runtime.sendMessage({
         type: 'START_FACT_CHECK',
-        articleData: fallbackData
+        articleData: fallbackData,
+        tabId: targetTabId
       }, (res) => {
         if (res && res.error) {
           if (res.error === 'API_KEY_REQUIRED') {
             showView(viewSetup);
           } else {
-            alert(`Analysis notice: ${res.error}`);
-            showView(viewReady);
+            const desc = document.getElementById('progress-stage-desc');
+            if (desc) {
+              desc.innerText = `Notice: ${res.error}`;
+              desc.style.color = '#ef4444';
+            }
+            setTimeout(() => showView(viewReady), 2500);
           }
         } else if (res && res.success && res.report) {
           currentReport = res.report;
@@ -344,13 +398,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       claimsList.innerHTML = '<div class="claim-item">No specific discrete claims evaluated.</div>';
     } else {
       verified.slice(0, 2).forEach(c => {
-        claimsList.innerHTML += `<div class="claim-item claim-item-verified"><span>✓</span><span>${c}</span></div>`;
+        claimsList.innerHTML += `<div class="claim-item claim-item-verified"><span>✓</span><span>${escapeHtml(c)}</span></div>`;
       });
       disputed.slice(0, 2).forEach(c => {
-        claimsList.innerHTML += `<div class="claim-item claim-item-disputed"><span>⚠️</span><span>${c}</span></div>`;
+        claimsList.innerHTML += `<div class="claim-item claim-item-disputed"><span>⚠️</span><span>${escapeHtml(c)}</span></div>`;
       });
       falseClaims.slice(0, 1).forEach(c => {
-        claimsList.innerHTML += `<div class="claim-item claim-item-false"><span>❌</span><span>${c}</span></div>`;
+        claimsList.innerHTML += `<div class="claim-item claim-item-false"><span>❌</span><span>${escapeHtml(c)}</span></div>`;
       });
     }
   }

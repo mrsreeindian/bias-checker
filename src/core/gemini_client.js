@@ -14,50 +14,107 @@ export class GeminiClient {
   }
 
   /**
-   * Quick validation test for the user's Gemini API key
+   * Quick validation test for the user's Gemini API key.
+   * Verifies against Google API models list and auto-detects the active working model.
    */
   static async testApiKey(apiKey) {
     if (!apiKey || typeof apiKey !== 'string' || apiKey.trim().length < 10) {
       return { valid: false, error: 'API key is empty or too short' };
     }
 
-    const testUrl = `${API_BASE}/${DEFAULT_MODEL}:generateContent?key=${apiKey.trim()}`;
+    const trimmedKey = apiKey.trim();
+
+    // 1. Primary validation: Query available models list via GET request
+    // This verifies key validity without burning content generation tokens or guessing model availability
     try {
-      const response = await fetch(testUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: 'Respond with "PONG"' }] }]
-        })
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+      const modelsUrl = `${API_BASE}?key=${trimmedKey}`;
+      const response = await fetch(modelsUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': trimmedKey
+        },
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
 
       if (response.ok) {
-        return { valid: true };
+        const data = await response.json().catch(() => ({}));
+        const availableModels = (data.models || []).map(m => m.name ? m.name.replace(/^models\//, '') : '');
+        
+        // Find best match among default and fallbacks
+        const preferredList = [DEFAULT_MODEL, ...FALLBACK_MODELS];
+        const matchedModel = preferredList.find(m => availableModels.includes(m))
+          || availableModels.find(m => m.includes('flash'))
+          || DEFAULT_MODEL;
+
+        GeminiClient.resolvedWorkingModel = matchedModel;
+        return {
+          valid: true,
+          workingModel: matchedModel,
+          note: `Key verified! Active model: ${matchedModel}`
+        };
       }
 
-      // If model not found (404), try fallback to test if key itself is valid
-      if (response.status === 404) {
-        for (const fallback of FALLBACK_MODELS) {
-          const fbUrl = `${API_BASE}/${fallback}:generateContent?key=${apiKey.trim()}`;
-          const fbRes = await fetch(fbUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: 'Respond with "PONG"' }] }]
-            })
-          });
-          if (fbRes.ok) {
-            return { valid: true, note: `Key verified with fallback model ${fallback}` };
-          }
+      // If response failed with authentication or key error, return clear message
+      if (response.status === 400 || response.status === 403) {
+        const errData = await response.json().catch(() => ({}));
+        const message = errData?.error?.message || `Invalid API Key (HTTP ${response.status})`;
+        return { valid: false, error: message };
+      }
+    } catch (modelsErr) {
+      console.warn('GET /models verification failed, attempting POST generateContent test...', modelsErr);
+      if (modelsErr.name === 'AbortError') {
+        return { valid: false, error: 'Connection timed out connecting to Google API' };
+      }
+    }
+
+    // 2. Secondary fallback test: POST generateContent against candidate models
+    const candidateModels = Array.from(new Set([DEFAULT_MODEL, ...FALLBACK_MODELS]));
+    for (const model of candidateModels) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      try {
+        const testUrl = `${API_BASE}/${model}:generateContent?key=${trimmedKey}`;
+        const response = await fetch(testUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': trimmedKey
+          },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: 'Respond with "PONG"' }] }]
+          }),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          GeminiClient.resolvedWorkingModel = model;
+          return { valid: true, workingModel: model, note: `Key verified with model ${model}` };
+        }
+
+        // If 404 (model not found), continue to next fallback model
+        if (response.status === 404) {
+          continue;
+        }
+
+        const errData = await response.json().catch(() => ({}));
+        const message = errData?.error?.message || `HTTP ${response.status} ${response.statusText}`;
+        return { valid: false, error: message };
+      } catch (err) {
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') {
+          return { valid: false, error: 'Connection timed out connecting to Google API' };
         }
       }
-
-      const errData = await response.json().catch(() => ({}));
-      const message = errData?.error?.message || `HTTP ${response.status} ${response.statusText}`;
-      return { valid: false, error: message };
-    } catch (err) {
-      return { valid: false, error: err.message || 'Network error connecting to Google API' };
     }
+
+    return { valid: false, error: 'Unable to connect to Google API or verify API key' };
   }
 
   /**
@@ -74,10 +131,11 @@ export class GeminiClient {
       throw new Error('Google Gemini API Key is missing. Please enter your key in settings.');
     }
 
+    const trimmedKey = this.apiKey.trim();
+
     // Use previously resolved working model if available to avoid repeating 404s
     const startModel = GeminiClient.resolvedWorkingModel || this.preferredModel;
-    const remainingModels = [this.preferredModel, ...FALLBACK_MODELS].filter(m => m !== startModel);
-    const modelsToTry = [startModel, ...remainingModels];
+    const modelsToTry = Array.from(new Set([startModel, this.preferredModel, ...FALLBACK_MODELS]));
     let lastError = null;
 
     for (const model of modelsToTry) {
@@ -85,7 +143,7 @@ export class GeminiClient {
       const timeoutId = setTimeout(() => controller.abort(), 18000); // 18s timeout
 
       try {
-        const url = `${API_BASE}/${model}:generateContent?key=${this.apiKey.trim()}`;
+        const url = `${API_BASE}/${model}:generateContent?key=${trimmedKey}`;
 
         const payload = {
           contents: [
@@ -117,7 +175,10 @@ export class GeminiClient {
 
         const response = await fetch(url, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': trimmedKey
+          },
           body: JSON.stringify(payload),
           signal: controller.signal
         });
@@ -172,11 +233,22 @@ export class GeminiClient {
           groundingMetadata
         };
       } catch (err) {
-        lastError = err;
-        // If not a 404, don't silently loop through all models unless it's a model specific issue
-        if (!err.message?.includes('not found') && !err.message?.includes('HTTP 404')) {
-          throw err;
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') {
+          lastError = new Error(`Request timed out after 18s while connecting to Gemini (${model})`);
+        } else {
+          lastError = err;
         }
+
+        // If fatal auth/key error, fail immediately without cycling through models
+        if (lastError.message?.includes('API_KEY_INVALID') || lastError.message?.includes('API key not valid')) {
+          throw lastError;
+        }
+
+        // For model not found (404), rate limit (429), or timeout, log and continue to next fallback
+        console.warn(`Model ${model} attempt failed (${lastError.message}), attempting fallback...`);
+      } finally {
+        clearTimeout(timeoutId);
       }
     }
 

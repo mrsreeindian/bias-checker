@@ -31,6 +31,9 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   }
 });
 
+// Track in-flight fact-check promises to prevent duplicate parallel debate executions
+const inFlightChecks = new Map();
+
 // Message Dispatcher
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const handler = async () => {
@@ -42,7 +45,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return await handleSaveAndVerifyKey(message.apiKey);
 
       case 'START_FACT_CHECK':
-        return await handleStartFactCheck(message.articleData, sender?.tab?.id);
+        const targetTabId = sender?.tab?.id || message.tabId;
+        return await handleStartFactCheck(message.articleData, targetTabId);
 
       case 'GET_REPORT':
         return await handleGetReport(message.reportId, message.url);
@@ -70,14 +74,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
  * Checks if API key is configured and if a cached report exists for the given URL
  */
 async function handleGetPageStatus(url) {
-  const data = await chrome.storage.local.get(['geminiApiKey', 'reportsCache']);
+  const data = await chrome.storage.local.get(['geminiApiKey', 'reportsCache', 'showForumWarning']);
   const hasApiKey = !!data.geminiApiKey;
   const reportsCache = data.reportsCache || {};
-  const cachedReport = url ? reportsCache[normalizeUrl(url)] : null;
+  const normalized = normalizeUrl(url);
+  const cachedReport = url ? reportsCache[normalized] : null;
+  const isAnalyzing = normalized ? inFlightChecks.has(normalized) : false;
 
   return {
     hasApiKey,
-    cachedReport: cachedReport || null
+    cachedReport: cachedReport || null,
+    showForumWarning: data.showForumWarning !== false,
+    isAnalyzing
   };
 }
 
@@ -87,8 +95,16 @@ async function handleGetPageStatus(url) {
 async function handleSaveAndVerifyKey(apiKey) {
   const testResult = await GeminiClient.testApiKey(apiKey);
   if (testResult.valid) {
-    await chrome.storage.local.set({ geminiApiKey: apiKey.trim() });
-    return { valid: true, note: testResult.note };
+    const toSave = { geminiApiKey: apiKey.trim() };
+    if (testResult.workingModel) {
+      toSave.modelPreference = testResult.workingModel;
+    }
+    await chrome.storage.local.set(toSave);
+    return {
+      valid: true,
+      note: testResult.note,
+      workingModel: testResult.workingModel
+    };
   }
   return { valid: false, error: testResult.error };
 }
@@ -97,91 +113,118 @@ async function handleSaveAndVerifyKey(apiKey) {
  * Executes the full council debate
  */
 async function handleStartFactCheck(articleData, tabId) {
-  const settings = await chrome.storage.local.get([
-    'geminiApiKey',
-    'modelPreference',
-    'councilSize',
-    'useGrounding',
-    'reportsCache'
-  ]);
-
-  const apiKey = settings.geminiApiKey;
-  if (!apiKey) {
-    return { error: 'API_KEY_REQUIRED' };
+  const normalized = normalizeUrl(articleData.url);
+  if (normalized && inFlightChecks.has(normalized)) {
+    return await inFlightChecks.get(normalized);
   }
 
-  const model = settings.modelPreference || DEFAULT_MODEL;
-  const councilSize = settings.councilSize || 5;
-  const useGrounding = !!settings.useGrounding;
+  const job = (async () => {
+    const settings = await chrome.storage.local.get([
+      'geminiApiKey',
+      'modelPreference',
+      'councilSize',
+      'useGrounding',
+      'reportsCache'
+    ]);
 
-  const engine = new CouncilDebateEngine(apiKey, {
-    model,
-    councilSize,
-    useGrounding
-  });
+    const apiKey = settings.geminiApiKey;
+    if (!apiKey) {
+      return { error: 'API_KEY_REQUIRED' };
+    }
 
-  // Progress relay to runtime (popup) and tab content script (pill)
-  const onProgress = (prog) => {
-    chrome.runtime.sendMessage({
-      type: 'FACT_CHECK_PROGRESS',
-      data: prog
-    }).catch(() => {});
+    const model = settings.modelPreference || DEFAULT_MODEL;
+    const councilSize = settings.councilSize || 5;
+    const useGrounding = !!settings.useGrounding;
 
-    if (tabId) {
-      chrome.tabs.sendMessage(tabId, {
+    const engine = new CouncilDebateEngine(apiKey, {
+      model,
+      councilSize,
+      useGrounding
+    });
+
+    // Progress relay to runtime (popup) and tab content script (pill)
+    const onProgress = (prog) => {
+      chrome.runtime.sendMessage({
         type: 'FACT_CHECK_PROGRESS',
         data: prog
       }).catch(() => {});
-    }
-  };
 
-  try {
-    const report = await engine.runCouncilDebate(articleData, onProgress);
+      if (tabId) {
+        chrome.tabs.sendMessage(tabId, {
+          type: 'FACT_CHECK_PROGRESS',
+          data: prog
+        }).catch(() => {});
+      }
+    };
 
-    // Save report in cache
-    const reportsCache = settings.reportsCache || {};
-    const normalized = normalizeUrl(articleData.url);
-    reportsCache[normalized] = report;
-    reportsCache[report.id] = report;
+    try {
+      const report = await engine.runCouncilDebate(articleData, onProgress);
 
-    // Cache latest report id for quick popup access
-    await chrome.storage.local.set({
-      reportsCache,
-      latestReportId: report.id
-    });
+      // Save report in cache with bounded size (max 60 keys / ~30 reports)
+      const reportsCache = settings.reportsCache || {};
+      reportsCache[normalized] = report;
+      reportsCache[report.id] = report;
 
-    // Update Extension Badge
-    updateBadge(report.verdict.score, tabId);
+      const cacheKeys = Object.keys(reportsCache);
+      let finalCache = reportsCache;
+      if (cacheKeys.length > 60) {
+        finalCache = {};
+        cacheKeys.slice(-60).forEach(k => {
+          finalCache[k] = reportsCache[k];
+        });
+      }
 
-    // Broadcast completion to popup and council chamber
-    chrome.runtime.sendMessage({
-      type: 'FACT_CHECK_COMPLETE',
-      data: report
-    }).catch(() => {});
+      // Cache latest report id for quick popup access
+      await chrome.storage.local.set({
+        reportsCache: finalCache,
+        latestReportId: report.id
+      });
 
-    // Notify tab content script
-    if (tabId) {
-      chrome.tabs.sendMessage(tabId, {
+      // Update Extension Badge
+      updateBadge(report.verdict.score, tabId);
+
+      // Broadcast completion to popup and council chamber
+      chrome.runtime.sendMessage({
         type: 'FACT_CHECK_COMPLETE',
         data: report
       }).catch(() => {});
-    }
 
-    return { success: true, report };
-  } catch (err) {
-    console.error('Council debate error:', err);
-    chrome.runtime.sendMessage({
-      type: 'FACT_CHECK_ERROR',
-      error: err.message
-    }).catch(() => {});
+      // Notify tab content script
+      if (tabId) {
+        chrome.tabs.sendMessage(tabId, {
+          type: 'FACT_CHECK_COMPLETE',
+          data: report
+        }).catch(() => {});
+      }
 
-    if (tabId) {
-      chrome.tabs.sendMessage(tabId, {
+      return { success: true, report };
+    } catch (err) {
+      console.error('Council debate error:', err);
+      chrome.runtime.sendMessage({
         type: 'FACT_CHECK_ERROR',
         error: err.message
       }).catch(() => {});
+
+      if (tabId) {
+        chrome.tabs.sendMessage(tabId, {
+          type: 'FACT_CHECK_ERROR',
+          error: err.message
+        }).catch(() => {});
+      }
+      return { error: err.message };
     }
-    return { error: err.message };
+  })();
+
+  if (normalized) {
+    inFlightChecks.set(normalized, job);
+  }
+
+  try {
+    return await job;
+  } finally {
+    if (normalized) {
+      inFlightChecks.delete(normalized);
+    }
   }
 }
 
@@ -189,12 +232,21 @@ async function handleStartFactCheck(articleData, tabId) {
  * Checks a specific user-selected sentence or claim
  */
 async function handleCustomClaimCheck(tabId, selectedClaim, pageUrl) {
+  let domain = 'Direct Claim';
+  if (pageUrl) {
+    try {
+      domain = new URL(pageUrl).hostname || 'Direct Claim';
+    } catch {
+      domain = 'Direct Claim';
+    }
+  }
+
   const articleData = {
     title: `Claim Check: "${selectedClaim.substring(0, 60)}..."`,
     head: selectedClaim,
     tail: selectedClaim,
     context: selectedClaim,
-    domain: pageUrl ? new URL(pageUrl).hostname : 'Direct Claim',
+    domain: domain,
     url: pageUrl || 'about:blank',
     isForum: false
   };

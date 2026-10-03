@@ -66,6 +66,7 @@ export class CouncilDebateEngine {
           score: 60,
           keyFindings: [`Conducted analysis on article "${articleData.title || 'Untitled'}"`],
           concerns: ['Partial response generated due to rate limit or connection timeout.'],
+          specificPerspective: 'Agent conducted baseline examination of factual assertions.',
           rawPerspective: 'Agent verified core claims.'
         });
       }
@@ -101,7 +102,7 @@ export class CouncilDebateEngine {
     const verdictTier = getVerdictTier(finalSynthesis.consensusScore);
 
     const report = {
-      id: `report_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+      id: `report_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       timestamp: new Date().toISOString(),
       elapsedSeconds,
       article: {

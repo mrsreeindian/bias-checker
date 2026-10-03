@@ -4,6 +4,16 @@
  */
 
 document.addEventListener('DOMContentLoaded', async () => {
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   const urlParams = new URLSearchParams(window.location.search);
   const reportId = urlParams.get('reportId');
 
@@ -16,6 +26,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       renderChamber(res.report);
     } else {
       renderEmptyState();
+    }
+  });
+
+  // Listen for live completion updates while Council Chamber tab is open
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message.type === 'FACT_CHECK_COMPLETE' && message.data) {
+      renderChamber(message.data);
     }
   });
 
@@ -129,12 +146,12 @@ Report Generated: ${new Date(report.timestamp).toLocaleString()}
       const card = document.createElement('div');
       card.className = 'podium-card';
       card.innerHTML = `
-        <div class="podium-top-bar" style="background: ${agent.color || '#3b82f6'};"></div>
-        <div class="podium-avatar">${agent.avatar || '🤖'}</div>
-        <div class="podium-name">${agent.agentName}</div>
-        <div class="podium-role">${agent.agentRole}</div>
-        <div class="podium-score" style="color: ${agent.color || '#3b82f6'};">
-          ${agent.score} <span style="font-size: 11px; color: #94a3b8;">/ 100</span>
+        <div class="podium-top-bar" style="background: ${escapeHtml(agent.color || '#3b82f6')};"></div>
+        <div class="podium-avatar">${escapeHtml(agent.avatar || '🤖')}</div>
+        <div class="podium-name">${escapeHtml(agent.agentName)}</div>
+        <div class="podium-role">${escapeHtml(agent.agentRole)}</div>
+        <div class="podium-score" style="color: ${escapeHtml(agent.color || '#3b82f6')};">
+          ${Math.round(agent.score)} <span style="font-size: 11px; color: #94a3b8;">/ 100</span>
         </div>
       `;
       grid.appendChild(card);
@@ -149,7 +166,7 @@ Report Generated: ${new Date(report.timestamp).toLocaleString()}
       <div class="podium-name">Chairman Aristotle</div>
       <div class="podium-role">Council Chairman & Synthesizer</div>
       <div class="podium-score" style="color: #10b981;">
-        ${report.verdict.score} <span style="font-size: 11px; color: #94a3b8;">Consensus</span>
+        ${Math.round(report.verdict.score)} <span style="font-size: 11px; color: #94a3b8;">Consensus</span>
       </div>
     `;
     grid.appendChild(chairCard);
@@ -168,11 +185,11 @@ Report Generated: ${new Date(report.timestamp).toLocaleString()}
       s1.findings.forEach(f => {
         findingsHtml += `
           <div style="margin-bottom: 14px; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px;">
-            <div style="font-weight: 700; color: ${f.color || '#38bdf8'}; font-size: 13px;">
-              ${f.avatar || '•'} ${f.agentName} (${f.score}/100):
+            <div style="font-weight: 700; color: ${escapeHtml(f.color || '#38bdf8')}; font-size: 13px;">
+              ${escapeHtml(f.avatar || '•')} ${escapeHtml(f.agentName)} (${Math.round(f.score)}/100):
             </div>
-            <p style="margin: 4px 0; font-size: 13px;">${f.specificPerspective}</p>
-            <div style="font-size: 12px; color: #94a3b8;"><strong>Concerns:</strong> ${f.concerns.join('; ')}</div>
+            <p style="margin: 4px 0; font-size: 13px;">${escapeHtml(f.specificPerspective)}</p>
+            <div style="font-size: 12px; color: #94a3b8;"><strong>Concerns:</strong> ${escapeHtml((f.concerns || []).join('; '))}</div>
           </div>
         `;
       });
@@ -195,9 +212,9 @@ Report Generated: ${new Date(report.timestamp).toLocaleString()}
       s2.exchanges.forEach(ex => {
         exchangesHtml += `
           <div class="debate-exchange-item">
-            <div class="exchange-speakers">${ex.speaker} ➔ ${ex.target}</div>
-            <div class="exchange-argument">"${ex.argument}"</div>
-            <div class="exchange-rebuttal"><strong>Rebuttal:</strong> "${ex.rebuttal}"</div>
+            <div class="exchange-speakers">${escapeHtml(ex.speaker)} ➔ ${escapeHtml(ex.target)}</div>
+            <div class="exchange-argument">"${escapeHtml(ex.argument)}"</div>
+            <div class="exchange-rebuttal"><strong>Rebuttal:</strong> "${escapeHtml(ex.rebuttal)}"</div>
           </div>
         `;
       });
@@ -223,8 +240,8 @@ Report Generated: ${new Date(report.timestamp).toLocaleString()}
             <h3 class="stage-title">Round 3: Chairman Synthesis & Verdict</h3>
           </div>
           <p style="font-size: 14px; line-height: 1.6;">
-            <strong>Consensus Credibility:</strong> ${report.verdict.score}/100 (${report.verdict.label})<br>
-            <strong>Chairman Notes:</strong> ${s3.chairmanReview || report.verdict.executiveSummary}
+            <strong>Consensus Credibility:</strong> ${Math.round(report.verdict.score)}/100 (${escapeHtml(report.verdict.label)})<br>
+            <strong>Chairman Notes:</strong> ${escapeHtml(s3.chairmanReview || report.verdict.executiveSummary)}
           </p>
         </div>
       `;
@@ -245,15 +262,15 @@ Report Generated: ${new Date(report.timestamp).toLocaleString()}
     const falseCol = document.getElementById('col-false');
 
     verifiedCol.innerHTML = (report.claims.verified || []).map(c => 
-      `<div class="claim-box">${c}</div>`
+      `<div class="claim-box">${escapeHtml(c)}</div>`
     ).join('') || '<div class="claim-box">None highlighted</div>';
 
     disputedCol.innerHTML = (report.claims.disputed || []).map(c => 
-      `<div class="claim-box">${c}</div>`
+      `<div class="claim-box">${escapeHtml(c)}</div>`
     ).join('') || '<div class="claim-box">None highlighted</div>';
 
     falseCol.innerHTML = (report.claims.falseOrMisleading || []).map(c => 
-      `<div class="claim-box">${c}</div>`
+      `<div class="claim-box">${escapeHtml(c)}</div>`
     ).join('') || '<div class="claim-box">None detected</div>';
   }
 
@@ -264,13 +281,18 @@ Report Generated: ${new Date(report.timestamp).toLocaleString()}
   }
 
   function renderEmptyState() {
-    document.querySelector('.chamber-container').innerHTML = `
+    const container = document.querySelector('.chamber-container');
+    if (!container) return;
+    container.innerHTML = `
       <div style="text-align: center; padding: 60px 20px;">
         <span style="font-size: 48px;">🏛️</span>
         <h2>No Active Council Report Found</h2>
         <p style="color: #94a3b8;">Run a fact-check from the extension popup or in-page pill to convene the AI Council.</p>
-        <button onclick="window.close()" class="btn btn-secondary">Close Window</button>
+        <button id="empty-close-btn" class="btn btn-secondary">Close Window</button>
       </div>
     `;
+    document.getElementById('empty-close-btn')?.addEventListener('click', () => {
+      window.close();
+    });
   }
 });

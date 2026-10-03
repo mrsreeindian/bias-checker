@@ -29,6 +29,7 @@
     "default_title": "Fact-Checker AI Council"
   },
   "background": {
+    "service_worker": "src/background/service_worker.js",
     "scripts": ["src/background/service_worker.js"],
     "type": "module"
   },
@@ -59,10 +60,7 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "icons/*",
-        "src/council/council.html",
-        "src/council/council.css",
-        "src/council/council.js"
+        "icons/*"
       ],
       "matches": ["<all_urls>"]
     }

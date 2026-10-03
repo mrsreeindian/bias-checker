@@ -101,7 +101,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       testKeyBtn.innerText = 'Test & Save';
 
       if (res && res.valid) {
-        showKeyStatus('✅ Key verified & saved successfully!', true);
+        if (res.workingModel) {
+          if (['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'].includes(res.workingModel)) {
+            modelSelect.value = res.workingModel;
+            customModelGroup.style.display = 'none';
+          } else {
+            modelSelect.value = 'custom';
+            customModelGroup.style.display = 'block';
+            customModelInput.value = res.workingModel;
+          }
+        }
+        showKeyStatus(res.note ? `✅ ${res.note}` : '✅ Key verified & saved successfully!', true);
       } else {
         showKeyStatus(`❌ Verification failed: ${res?.error || 'Unknown error'}`, false);
       }
